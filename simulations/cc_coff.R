@@ -27,7 +27,7 @@ cc_cutoff_onerep=function(k,d,setting){
   Vcalib=abs(calib_data$Y-predict(model_lm,newdata=calib_data))
   
   #-------------test data------------------------------
-  test_data=conditional_simulation(n=100,r=0,setting)
+  test_data=conditional_simulation(n=100,setting)
   Xtest=as.matrix(test_data[,-1])
   Vtest=abs(test_data$Y-predict(model_lm,newdata=test_data))
   

@@ -21,7 +21,7 @@ simulation=function(n,d,setting){
 #-------Simulating Y|X on a grid of ---------------
 #--------feature points in (-3,3)-----------------
 #--------------------------------------------------
-conditional_simulation=function(n=100,r,setting){
+conditional_simulation=function(n=100,setting){
   X=as.matrix(seq(-3,3,by=0.01))
   N=rnorm(length(X),0,1)
   
