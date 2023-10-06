@@ -18,7 +18,7 @@ We provide the exact code for reproducing the numerical results in the paper " "
 - marginal coverage on subsets with dimension-adaptive bandwidth `(Figure 4)`: `mc_onA_opt_h.R/`
 
 ### Other simulation results from Section 6 and appendix
-- effect of randomization on RLCP prediction interval in simulation settings `(Figure 7 & 8)`: `simul_rand_effect.R/`
+- effect of randomization on RLCP prediction interval in simulation settings `(Figure 7 & 8 left)`: `simul_rand_effect.R/`
 - coverage of mRLCP prediction interval `(Figure 9)`: `mRLCP.R/`
 
 
@@ -26,3 +26,6 @@ We provide the exact code for reproducing the numerical results in the paper " "
 ### Codes for reproducing results in Section 5.2
 - marginal coverage and conditional coverage `(Figure 5 & 6)`: `real_exp.R/`
 - quantitative analysis on effect of randomization on RLCP prediction interval in real data experiments `(Figure 8 right)`: `real_dev.R/`
+
+## Real Data
+For our real data experiments, we have used the `Train_Data.csv` of medical insurance dataset from [kaggle datasets](https://www.kaggle.com/datasets/rajgupta2019/medical-insurance-dataset). For reproducing the real data experiments, please download the data from this above link, and load it into your R before running the codes from `real_data/` folder.
