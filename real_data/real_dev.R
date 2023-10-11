@@ -191,7 +191,8 @@ deviation_real=ggplot(deviation_real_df,aes(x=h,y=deviation,linetype=setting))+
   scale_linetype_manual(values=c("Linear Model"="dashed","Random Forest"="dotted","Neural Net"="dotdash"))+
   labs(x="Bandwidth h",y=expression(D(h)),linetype="Base Method")+
   ggtitle("Deviation D(h) of RLCP in real data setting")+
-  theme(axis.title = element_text(size = 16), 
+  theme(axis.title = element_text(size = 16),
+        axis.text=element_text(size=16),
         plot.title = element_text(hjust = 0.5,size=16), 
         legend.position = "bottom",
         legend.text = element_text(size=14))

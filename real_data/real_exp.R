@@ -455,7 +455,12 @@ plot3=ggplot(plot_result[plot_result$h %in% c(2,6),], aes(x = CP_method, y = cov
   scale_fill_discrete(labels=c("0"="no","1"="yes"))+
   geom_hline(yintercept=0.9,linetype="dashed")+
   facet_grid(h~`base method`,labeller = label_bquote(cols = .(`base method`),rows= h ==.(h)))+
-  theme(legend.position = "bottom")+
+  theme(axis.title = element_text(size = 14),
+        axis.text=element_text(size=12),
+        plot.title = element_text(hjust = 0.5,size=14), 
+        legend.position = "bottom",
+        legend.text = element_text(size=14),
+        strip.text = element_text(size=14))+
   labs(fill="Smoker",x="Method",y="Coverage")
 
 #-------------across BMI bins-------------------------
@@ -483,11 +488,16 @@ plot4=ggplot(plot_result[plot_result$h %in% c(2,6),], aes(x = bmi, y = coverage,
   xlab("BMI quantile")+
   scale_color_manual(values=c("RLCP"="maroon","calLCP"="gold3","baseLCP"="blue"))+
   facet_grid(h~ `base method` ,labeller=label_bquote(cols = .(`base method`),rows= h ==.(h)))+
-  theme(legend.position = "bottom")+
+  theme(axis.title = element_text(size = 14),
+        axis.text=element_text(size=14),
+        plot.title = element_text(hjust = 0.5,size=14), 
+        legend.position = "bottom",
+        legend.text = element_text(size=14),
+        strip.text = element_text(size=14))+
   labs(color="Method",x="BMI Quantile",y="Local Coverage")
 
 
-pdf(file = "../results/figures/realdata_conditional_results.pdf",width = 13, height = 5) 
+pdf(file = "../results/figures/realdata_conditional_results.pdf",width = 16, height = 5) 
 grid.arrange(plot3,plot4,ncol=2,widths=c(2.6,3))
 dev.off()
 

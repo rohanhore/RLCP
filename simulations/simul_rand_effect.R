@@ -248,6 +248,7 @@ deviation_simul=ggplot(deviation_simul_df,aes(x=h,y=deviation,linetype=setting))
   labs(x="Bandwidth h",y=expression(D(h)),linetype="Setting")+
   ggtitle("Deviation D(h) of RLCP in simulation settings")+
   theme(axis.title = element_text(size = 16), 
+        axis.text = element_text(size=16),
         plot.title = element_text(hjust = 0.5,size=16), 
         legend.position = "bottom",
         legend.text = element_text(size=14))
