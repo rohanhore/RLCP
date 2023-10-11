@@ -19,7 +19,7 @@ suppressPackageStartupMessages(library(ggplot2))
 #--------------------------------------------------------
 #--------data loading & pre-processing-------------------
 #--------------------------------------------------------
-data=read.csv("/Users/rohanhore/Dropbox/My projects/rLCP/Data/Insurance Dataset/Train_Data.csv",header=T)
+data=read.csv("Train_Data.csv",header=T)
 data=as.data.frame(data)
 data=data %>% distinct()
 #disregarding the children and region information
@@ -229,9 +229,9 @@ real_analysis=function(h,k){
   scores_lm_calib=abs(calib_data$charges-predict.lm(model_lm,calib_data))
   scores_lm_test=abs(test_data$charges-predict.lm(model_lm,test_data))
   
-  result_lm_calLCP=calLCP_real(Xcalib, scores_lm_calib,Xtest,scores_lm_test,h,0.1)
-  result_lm_baseLCP=baseLCP_real(Xcalib, scores_lm_calib,Xtest,scores_lm_test,h,0.1)
-  result_lm_RLCP=RLCP_real(Xcalib, scores_lm_calib,Xtest,scores_lm_test,h,0.1)
+  result_lm_calLCP=calLCP_real(Xcalib, scores_lm_calib,Xtest,scores_lm_test,h,alpha)
+  result_lm_baseLCP=baseLCP_real(Xcalib, scores_lm_calib,Xtest,scores_lm_test,h,alpha)
+  result_lm_RLCP=RLCP_real(Xcalib, scores_lm_calib,Xtest,scores_lm_test,h,alpha)
   
   coverage_lm_RLCP=mean(result_lm_RLCP[,1])
   coverage_lm_calLCP=mean(result_lm_calLCP[,1])
@@ -256,9 +256,9 @@ real_analysis=function(h,k){
   scores_rf_calib=abs(calib_data$charges-predict(model_rf,calib_data))
   scores_rf_test=abs(test_data$charges-predict(model_rf,test_data))
   
-  result_rf_calLCP=calLCP_real(Xcalib, scores_rf_calib,Xtest,scores_rf_test,h,0.1)
-  result_rf_baseLCP=baseLCP_real(Xcalib, scores_rf_calib,Xtest,scores_rf_test,h,0.1)
-  result_rf_RLCP=RLCP_real(Xcalib, scores_rf_calib,Xtest,scores_rf_test,h,0.1)
+  result_rf_calLCP=calLCP_real(Xcalib, scores_rf_calib,Xtest,scores_rf_test,h,alpha)
+  result_rf_baseLCP=baseLCP_real(Xcalib, scores_rf_calib,Xtest,scores_rf_test,h,alpha)
+  result_rf_RLCP=RLCP_real(Xcalib, scores_rf_calib,Xtest,scores_rf_test,h,alpha)
   
   coverage_rf_RLCP=mean(result_rf_RLCP[,1])
   coverage_rf_calLCP=mean(result_rf_calLCP[,1])
@@ -286,9 +286,9 @@ real_analysis=function(h,k){
   scores_nn_calib=abs(calib_data$charges-predict_nn_calib)
   scores_nn_test=abs(test_data$charges-predict_nn_test)
   
-  result_nn_calLCP=calLCP_real(Xcalib, scores_nn_calib,Xtest,scores_nn_test,h,0.1)
-  result_nn_baseLCP=baseLCP_real(Xcalib, scores_nn_calib,Xtest,scores_nn_test,h,0.1)
-  result_nn_RLCP=RLCP_real(Xcalib, scores_nn_calib,Xtest,scores_nn_test,h,0.1)
+  result_nn_calLCP=calLCP_real(Xcalib, scores_nn_calib,Xtest,scores_nn_test,h,alpha)
+  result_nn_baseLCP=baseLCP_real(Xcalib, scores_nn_calib,Xtest,scores_nn_test,h,alpha)
+  result_nn_RLCP=RLCP_real(Xcalib, scores_nn_calib,Xtest,scores_nn_test,h,alpha)
   
   coverage_nn_RLCP=mean(result_nn_RLCP[,1])
   coverage_nn_calLCP=mean(result_nn_calLCP[,1])
@@ -333,7 +333,7 @@ mc=width=matrix(0,nrow=length(hseq),ncol=9)
 
 comb=function(x,y){return(list(rbind(x[[1]],y[[1]]),x[[2]]+y[[2]],x[[3]]+y[[3]],
                                x[[4]]+y[[4]]))}
-nrep=100
+nrep=100;alpha=0.1
 for(i in 1:length(hseq)){
   h=hseq[i]
   print(h)

@@ -77,6 +77,7 @@ hseq=c(0.5,1,1.5)
 #grid on feature space
 xseq=seq(-3,3,by=0.01)
 
+alpha=0.1
 plot_result=data.frame()
 for(i in 1:2){
   for(j in 1:3){

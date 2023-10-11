@@ -28,4 +28,4 @@ We provide the exact code for reproducing the numerical results in the paper " "
 - quantitative analysis on effect of randomization on RLCP prediction interval in real data experiments `(Figure 8 right)`: `real_dev.R/`
 
 ## Real Data
-For our real data experiments, we have used the `Train_Data.csv` of medical insurance dataset from [kaggle datasets](https://www.kaggle.com/datasets/rajgupta2019/medical-insurance-dataset). For reproducing the real data experiments, please download the data from this above link, and load it into your R before running the codes from `real_data/` folder.
+For our real data experiments, we have used the `Train_Data.csv` of medical insurance dataset from [kaggle datasets](https://www.kaggle.com/datasets/rajgupta2019/medical-insurance-dataset). For reproducing the real data experiments, please download the data from this above link and load it into your R before running the codes from `real_data/` folder.

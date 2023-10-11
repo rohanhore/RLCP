@@ -62,7 +62,7 @@ cc_cutoff_onerep=function(k,d,setting){
 #-----------------------uni-variate experiments----------------------
 #--------------------------------------------------------------------
 
-d=1
+d=1;alpha=0.1
 
 numcores=detectCores()-1
 cl=makeCluster(numcores)

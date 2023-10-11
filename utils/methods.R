@@ -316,12 +316,12 @@ calLCP=function(Xcalib,scores_calib,Xtest,scores_test,kernel,h,alpha){
 ##-----finding coverage for mrLCP for m=10,20,30,.. largest multiple of 10 before m.
 mRLCP=function(Xcalib,scores_calib,Xtest,scores_test,kernel,h,alpha,m){
   ntest=dim(Xtest)[1];d=dim(Xtest)[2]
-  coverage=matrix(0,nrow=ntest,ncol=(m/10))
+  coverage=matrix(0,nrow=ntest,ncol=floor(m/10))
   
   for(i in 1:ntest){
     xtest=Xtest[i,];test_score=scores_test[i]
     cov_data=rbind(Xcalib,xtest)
-    scores=c(scores_calib,Inf)
+    scores=c(scores_calib,test_score)
     
     #finding p values for m runs of RLCP.
     pval=rep(0,m)
@@ -330,13 +330,13 @@ mRLCP=function(Xcalib,scores_calib,Xtest,scores_test,kernel,h,alpha,m){
         xtilde_test=rmvnorm(1,mean=xtest,sigma=diag(d)*h^2)
         weights=dmvnorm(cov_data,mean=xtilde_test,sigma=diag(d)*h^2)
         weights=weights/sum(weights)
-        pval[k]=sum(head(weights,-1)*(scores_calib>test_score))+sum(weights*(scores_calib==test_score))*runif(1)
+        pval[k]=sum(weights*(scores>test_score))+sum(weights*(scores==test_score))*runif(1)
       }
       if(kernel=="box"){
         xtilde_test=runifball(1,xtest,h)
         weights=apply(cov_data,1,FUN=function(x){(euclid_distance(x,xtilde_test)<=h)+0})
         weights=weights/sum(weights)
-        pval[k]=sum(head(weights,-1)*(scores_calib>test_score))+sum(weights*(scores_calib==test_score))*runif(1)
+        pval[k]=sum(weights*(scores>test_score))+sum(weights*(scores==test_score))*runif(1)
       }
     }
     

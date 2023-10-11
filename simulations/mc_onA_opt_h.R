@@ -99,7 +99,7 @@ registerDoParallel(cl)
 p_seq=0.5
 
 setting=1
-nrep=50 
+nrep=50;alpha=0.1
 
 ind_set=function(X,threshold){which(apply(X,1,FUN=function(x) sum(x^2)<=threshold)==1)}
 

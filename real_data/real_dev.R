@@ -19,7 +19,7 @@ suppressPackageStartupMessages(library(ggplot2))
 #--------------------------------------------------------
 #--------data loading & pre-processing-------------------
 #--------------------------------------------------------
-data=read.csv("/Users/rohanhore/Dropbox/My projects/rLCP/Data/Insurance Dataset/Train_Data.csv",header=T)
+data=read.csv("Train_Data.csv",header=T)
 data=as.data.frame(data)
 data=data %>% distinct()
 #disregarding the children and region information
@@ -102,7 +102,7 @@ real_RLCP_deviation=function(h,k,split){
   scores_lm_calib=abs(calib_data$charges-predict.lm(model_lm,calib_data))
   scores_lm_test=abs(test_data$charges-predict.lm(model_lm,test_data))
   
-  result_lm_RLCP=RLCP_real(Xcalib, scores_lm_calib,Xtest,scores_lm_test,h,0.1)
+  result_lm_RLCP=RLCP_real(Xcalib, scores_lm_calib,Xtest,scores_lm_test,h,alpha)
   #result_lm_RLCP[result_lm_RLCP[,2]==Inf,2]=scores_lm_calib
   width_lm_RLCP=2*abs(result_lm_RLCP[,2])
   
@@ -112,7 +112,7 @@ real_RLCP_deviation=function(h,k,split){
   scores_rf_calib=abs(calib_data$charges-predict(model_rf,calib_data))
   scores_rf_test=abs(test_data$charges-predict(model_rf,test_data))
   
-  result_rf_RLCP=RLCP_real(Xcalib, scores_rf_calib,Xtest,scores_rf_test,h,0.1)
+  result_rf_RLCP=RLCP_real(Xcalib, scores_rf_calib,Xtest,scores_rf_test,h,alpha)
   width_rf_RLCP=2*abs(result_rf_RLCP[,2])
   
   #----------neural net--------------------
@@ -125,7 +125,7 @@ real_RLCP_deviation=function(h,k,split){
   scores_nn_calib=abs(calib_data$charges-predict_nn_calib)
   scores_nn_test=abs(test_data$charges-predict_nn_test)
   
-  result_nn_RLCP=RLCP_real(Xcalib,scores_nn_calib,Xtest,scores_nn_test,h,0.1)
+  result_nn_RLCP=RLCP_real(Xcalib,scores_nn_calib,Xtest,scores_nn_test,h,alpha)
   width_nn_RLCP=as.vector(2*abs(result_nn_RLCP[,2]))
   
   return(list(width_lm_RLCP,width_rf_RLCP,width_nn_RLCP))
@@ -139,6 +139,7 @@ cl=makeCluster(numcores)
 registerDoParallel(cl)
 #bandwidth choices
 hseq=2:8
+alpha=0.1
 
 comb_rand=function(x,y){return(list(rbind(x[[1]],y[[1]]),rbind(x[[2]],y[[2]]),rbind(x[[3]],y[[3]])))}
 

@@ -77,7 +77,7 @@ hseq=1.5
 p_seq=0.5
 
 setting=1;ntrain=2000;ncalib=2000;ntest=2000
-nrep=50
+nrep=50;alpha=0.1
 
 #the inner set
 ind_set=function(X,threshold){which(apply(X,1,FUN=function(x) sum(x^2)<=threshold)==1)}

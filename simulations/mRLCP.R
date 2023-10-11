@@ -10,7 +10,7 @@ source("../utils/methods.R")
 suppressPackageStartupMessages(library(doParallel))
 suppressPackageStartupMessages(library(MASS))
 suppressPackageStartupMessages(library(mvtnorm))
-
+suppressPackageStartupMessages(library(ggplot2))
 #------------------------------------------------------------
 #-----------computing marginal coverage of m-rLCP------------
 #------------------------------------------------------------
@@ -25,20 +25,19 @@ mrand_onerep=function(k,d,setting){
   #----------calibration data--------------------------
   calib_data=simulation(ncalib,d,setting)
   Xcalib=as.matrix(calib_data[,-1])
-  Vcalib=abs(calib_data$Y-predict(model_lm,newdata=calib_data))
-  plot(calib_data$X1,Vcalib)
+  scores_calib=abs(calib_data$Y-predict(model_lm,newdata=calib_data))
   
   #-------------test data------------------------------
   test_data=simulation(ntest,d,setting)
   Xtest=as.matrix(test_data[,-1])
-  Vtest=abs(test_data$Y-predict(model_lm,newdata=test_data))
+  scores_test=abs(test_data$Y-predict(model_lm,newdata=test_data))
   
   #-----------evaluating the competing methods-----------
-  m_rLCP_res=m_randomized_LCP(Xcalib,Vcalib,Xtest,Vtest,"gaussian",h,alpha,100)
-  rLCP_res=randomized_LCP(Xcalib,Vcalib,Xtest,Vtest,"gaussian",h,alpha)
+  m_rLCP_res=mRLCP(Xcalib,scores_calib,Xtest,scores_test,"gaussian",h,alpha,100)
+  rLCP_res=RLCP(Xcalib,scores_calib,Xtest,scores_test,"gaussian",h,alpha)
   
   #----------coverage-----------------------
-  coverage1=mean(m_rLCP_res)
+  coverage1=apply(m_rLCP_res,2,mean)
   coverage2=mean(rLCP_res[,1])
   
   return(c(coverage1,coverage2))
@@ -53,14 +52,14 @@ dseq=c(1,5*1:4)
 numcores=detectCores()-1
 cl=makeCluster(numcores)
 registerDoParallel(cl)
-hseq=c(1,1.5,2,2.5)
+hseq=c(0.5,1,1.5)
 
 #setting up the experiments
 setting=1;ntrain=2000;ncalib=2000;ntest=2000
-nrep=50
-result1=matrix(0,nrow=5*4,ncol=6)
+nrep=30;alpha=0.1
+result1=matrix(0,nrow=5*3,ncol=24)
 id=1
-for(j in 1:4){
+for(j in 1:3){
   h=hseq[j]
   for(l in 1:5){
     d=dseq[l]
@@ -98,14 +97,17 @@ plot_result=as.data.frame(plot_result)
 colnames(plot_result)=c("coverage","se","dimension","bandwidth","m")
 plot_result$m=as.factor(plot_result$m)
 
-pdf(file="../results/mRLCP_coverage_results.pdf",
-    width=8,height=6)
+pdf(file="../results/figures/mRLCP_coverage_results.pdf",
+    width=12,height=4)
 ggplot(plot_result[plot_result$m %in% c(1,10,30,60,100),], aes(x=dimension, y = coverage, col=m)) +
   geom_line() + 
   geom_point()+
   geom_errorbar(aes(ymin=coverage-se, ymax=coverage+se), width=.02,
                 position=position_dodge(0.01))+
   geom_hline(yintercept=0.9,linetype="dashed")+
-  facet_wrap(.~bandwidth,ncol=2,labeller=label_bquote(h ==.(h)))+
-  theme(plot.title = element_text(hjust=0.5))
+  facet_wrap(.~bandwidth,labeller=label_bquote(h ==.(bandwidth)))+
+  theme(plot.title = element_text(hjust = 0.5),
+        strip.text = element_text(size = 15),
+        axis.text=element_text(size=15),
+        axis.title=element_text(size=15))
 dev.off()
