@@ -13,7 +13,7 @@ We provide the exact code for reproducing the numerical results in the paper " "
 ## Guide for the codes in `simulations/` folder
 ### Codes for reproducing results in Section 5.1
 - marginal coverage `(Figure 1)`: `mc_cov.R/`
-- average prediction interval `(Figure 2)`: `cc_coff.R/`
+- average prediction interval `(Figure 2)`: `avg_interv.R/`
 - marginal coverage on subsets with constant bandwidth `(Figure 3)`: `mc_onA_const_h.R/`
 - marginal coverage on subsets with dimension-adaptive bandwidth `(Figure 4)`: `mc_onA_opt_h.R/`
 

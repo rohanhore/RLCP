@@ -10,7 +10,7 @@ source("../utils/methods.R")
 suppressPackageStartupMessages(library(doParallel))
 suppressPackageStartupMessages(library(MASS))
 suppressPackageStartupMessages(library(mvtnorm))
-
+suppressPackageStartupMessages(library(ggplot2))
 #-----------------------------------------------------------
 #------------------multivariate experiments-----------------
 #-----------------------------------------------------------
@@ -23,7 +23,7 @@ eff_size=50
 #---finding optimum bandwidth choices of RLCP and calLCP---
 optimum_RLCP_bandwidth=optimum_calLCP_bandwidth=rep(0,length(dseq))
 for(i in 1:length(dseq)){
-  if(i==1){h_min_RLCP=h_min_calLCP=0.05}
+  if(i==1){h_min_RLCP=h_min_calLCP=0.02}
   else{h_min_RLCP=optimum_RLCP_bandwidth[i-1];h_min_calLCP=optimum_calLCP_bandwidth[i-1]}
   Xtrain=as.matrix(simulation(n,dseq[i],1)[,-1]) 
   optimum_RLCP_bandwidth[i]=optimum_RLCP_h(Xtrain,"gaussian",h_min_RLCP,eff_size)
@@ -50,17 +50,17 @@ mccs_coverage_optimized=function(k,setting,j,p_seq){
   #----------calibration data--------------------------
   calib_data=simulation(n,d,setting)
   Xcalib=as.matrix(calib_data[,-1])
-  Vcalib=abs(calib_data$Y-predict(model_lm,newdata=calib_data))
+  scores_calib=abs(calib_data$Y-predict(model_lm,newdata=calib_data))
   
   #-------------test data------------------------------
   test_data=simulation(n,d,setting)
   Xtest=as.matrix(test_data[,-1])
-  Vtest=abs(test_data$Y-predict(model_lm,newdata=test_data))
+  scores_test=abs(test_data$Y-predict(model_lm,newdata=test_data))
   
   #-----------evaluating the competing methods-----------
-  RLCP_res=RLCP(Xcalib,Vcalib,Xtest,Vtest,"gaussian",h_opt_RLCP,alpha)
-  calLCP_res=calLCP(Xcalib,Vcalib,Xtest,Vtest,"gaussian",h_opt_calLCP,alpha)
-  baseLCP_res=baseLCP(Xcalib,Vcalib,Xtest,Vtest,"gaussian",h_opt_calLCP,alpha)
+  RLCP_res=RLCP(Xcalib,scores_calib,Xtest,scores_test,"gaussian",h_opt_RLCP,alpha)
+  calLCP_res=calLCP(Xcalib,scores_calib,Xtest,scores_test,"gaussian",h_opt_calLCP,alpha)
+  baseLCP_res=baseLCP(Xcalib,scores_calib,Xtest,scores_test,"gaussian",h_opt_calLCP,alpha)
   
   #----------coverage-----------------------
   for(i in 1:length(p_seq)){
@@ -99,7 +99,7 @@ registerDoParallel(cl)
 p_seq=0.5
 
 setting=1
-nrep=100 
+nrep=50 
 
 ind_set=function(X,threshold){which(apply(X,1,FUN=function(x) sum(x^2)<=threshold)==1)}
 
@@ -117,10 +117,12 @@ for(j in 1:length(dseq)){
 stopCluster(cl)
 print(resultd_1)
 
+write.csv(resultd_1,"../results/setting_1_mc_sett1_d_size50.csv")
 #------------------------------------------------
 #-----------------Visualization------------------
 #------------------------------------------------
 
+resultd_1=read.csv("../results/setting_1_mc_sett1_d_size50.csv")[,-1]
 resultd_1=as.data.frame(resultd_1);dseq=c(1,5*1:10)
 
 plot_result1=matrix(0,nrow=9*length(dseq)*length(p_seq),ncol=5)
@@ -137,7 +139,7 @@ plot_result1$se=as.numeric(plot_result1$se)
 plot_result1$d=as.numeric(plot_result1$d)
 level_order=c('baseLCP','calLCP','RLCP')
 
-pdf(file = "../results/coverage_trend_effective_size_50_optimized_bandwidth.pdf",width = 8,height=5)
+pdf(file = "../results/figures/coverage_trend_effective_size_50_optimized_bandwidth.pdf",width = 8,height=4)
 
 ggplot(plot_result1, aes(x = d, y = coverage,linetype = Set,color=method)) +
   geom_line() + 
@@ -150,9 +152,16 @@ ggplot(plot_result1, aes(x = d, y = coverage,linetype = Set,color=method)) +
                                  "inner"=expression(B["in"]),outer=expression(B["out"])),
                         values=c("whole"="solid","inner"="dotted","outer"="twodash"))+
   facet_grid(.~factor(method,levels=level_order))+
+  labs(linetype="Coverage over set",y="Coverage",x="Dimension d")+
   theme(legend.text.align = 0,
-        panel.spacing = unit(0.5,"cm",data=NULL))+
-  labs(linetype="Coverage over set",y="Coverage",x="Dimension d")
+        panel.spacing = unit(0.5,"cm",data=NULL),
+        strip.text = element_text(size = 13),
+        legend.text=element_text(size=13),
+        axis.text=element_text(size=13),
+        axis.title=element_text(size=13),
+        legend.title=element_text(size=13),
+        legend.spacing.y = unit(0.3,'cm'))+
+  guides(SET = guide_legend(byrow = TRUE))
 
 dev.off()
 

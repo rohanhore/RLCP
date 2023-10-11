@@ -106,6 +106,6 @@ ggplot(plot_result[plot_result$m %in% c(1,10,30,60,100),], aes(x=dimension, y = 
   geom_errorbar(aes(ymin=coverage-se, ymax=coverage+se), width=.02,
                 position=position_dodge(0.01))+
   geom_hline(yintercept=0.9,linetype="dashed")+
-  facet_wrap(.~bandwidth,ncol=2)+
+  facet_wrap(.~bandwidth,ncol=2,labeller=label_bquote(h ==.(h)))+
   theme(plot.title = element_text(hjust=0.5))
 dev.off()

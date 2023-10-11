@@ -10,7 +10,7 @@ source("../utils/methods.R")
 suppressPackageStartupMessages(library(doParallel))
 suppressPackageStartupMessages(library(MASS))
 suppressPackageStartupMessages(library(mvtnorm))
-
+suppressPackageStartupMessages(library(ggplot2))
 #------------------------------------------------------------------
 #-----------visual analysis on effect of randomization-------------
 #-------------------------------------------------------------------
@@ -26,64 +26,68 @@ randomization_effect=function(setting,nrep,h){
   #----------calibration data--------------------------
   calib_data=simulation(ncalib,d,setting)
   Xcalib=as.matrix(calib_data[,-1])
-  Vcalib=abs(calib_data$Y-predict(model_lm,newdata=calib_data))
+  scores_calib=abs(calib_data$Y-predict(model_lm,newdata=calib_data))
   
   #-------------test data------------------------------
   test_data=conditional_simulation(100,setting)
   Xtest=as.matrix(test_data[,-1])
-  Vtest=abs(test_data$Y-predict(model_lm,newdata=test_data))
+  scores_test=abs(test_data$Y-predict(model_lm,newdata=test_data))
   
   #-----------evaluating the competing methods-----------
-  calLCP_res=calLCP(Xcalib,Vcalib,Xtest,Vtest,"gaussian",h,alpha)
+  calLCP_res=calLCP(Xcalib,scores_calib,Xtest,scores_test,"gaussian",h,alpha)
   
-  Vcutoff_calLCP=calLCP_res[,2]
-  Vcutoff_calLCP[Vcutoff_calLCP==Inf]=max(Vcalib,Vtest)+0.2
+  scores_threshold_calLCP=calLCP_res[,2]
+  scores_threshold_calLCP[scores_threshold_calLCP==Inf]=max(scores_calib,scores_test)+0.2
   pred_test=predict(model_lm,test_data)
   #calLCP prediction interval
-  upper_cutoff_calLCP=pred_test+Vcutoff_calLCP
-  lower_cutoff_calLCP=pred_test-Vcutoff_calLCP
+  upper_threshold_calLCP=pred_test+scores_threshold_calLCP
+  lower_threshold_calLCP=pred_test-scores_threshold_calLCP
   
-  Vcutoffs_RLCP=matrix(0,nrow=dim(Xtest)[1],ncol=nrep)
+  scores_threshold_RLCP=matrix(0,nrow=dim(Xtest)[1],ncol=nrep)
   for(k in 1:nrep){
-    RLCP_res=RLCP(Xcalib,Vcalib,Xtest,Vtest,"gaussian",h,alpha)
-    Vcutoffs_RLCP[,k]=RLCP_res[,2]
-    Vcutoffs_RLCP[Vcutoffs_RLCP[,k]==Inf,k]=max(Vcalib,Vtest)+0.2
+    RLCP_res=RLCP(Xcalib,scores_calib,Xtest,scores_test,"gaussian",h,alpha)
+    scores_threshold_RLCP[,k]=RLCP_res[,2]
+    scores_threshold_RLCP[scores_threshold_RLCP[,k]==Inf,k]=max(scores_calib,scores_test)+0.2
   }
   #RLCP prediction intervals
-  upper_cutoffs_RLCP=pred_test+Vcutoffs_RLCP
-  lower_cutoffs_RLCP=pred_test-Vcutoffs_RLCP
+  upper_thresholds_RLCP=pred_test+scores_threshold_RLCP
+  lower_thresholds_RLCP=pred_test-scores_threshold_RLCP
   
   #95% and 5% quantiles of the RLCP prediction interval ends across different random seeds
-  up_random1=smooth.spline(Xtest,apply(upper_cutoffs_RLCP,1,FUN=function(x) {quantile(x,probs=0.95)}),spar=0.3)$y
-  up_random2=smooth.spline(Xtest,apply(upper_cutoffs_RLCP,1,FUN=function(x) {quantile(x,probs=0.05)}),spar=0.3)$y
+  up_random1=smooth.spline(Xtest,apply(upper_thresholds_RLCP,1,FUN=function(x) {quantile(x,probs=0.95)}),spar=0.3)$y
+  up_random2=smooth.spline(Xtest,apply(upper_thresholds_RLCP,1,FUN=function(x) {quantile(x,probs=0.05)}),spar=0.3)$y
   
-  low_random1=smooth.spline(Xtest,apply(lower_cutoffs_RLCP,1,FUN=function(x) {quantile(x,probs=0.95)}),spar=0.3)$y
-  low_random2=smooth.spline(Xtest,apply(lower_cutoffs_RLCP,1,FUN=function(x) {quantile(x,probs=0.05)}),spar=0.3)$y
+  low_random1=smooth.spline(Xtest,apply(lower_thresholds_RLCP,1,FUN=function(x) {quantile(x,probs=0.95)}),spar=0.3)$y
+  low_random2=smooth.spline(Xtest,apply(lower_thresholds_RLCP,1,FUN=function(x) {quantile(x,probs=0.05)}),spar=0.3)$y
   
   #oracle prediction interval
   if(setting==1){oracle=abs(sin(xseq))}
   if(setting==2){oracle=2*dnorm(xseq,0,1.5)}
   
   return(cbind(0.5*xseq+oracle*qnorm(0.95,0,1),0.5*xseq+oracle*qnorm(0.05,0,1),
-               upper_cutoff_calLCP,lower_cutoff_calLCP,
+               upper_threshold_calLCP,lower_threshold_calLCP,
                up_random1,up_random2,low_random1,low_random2))
 }
+
+#----------------------------------------------------------
+#-----------------experimental results---------------------
+#----------------------------------------------------------
 #bandwidth choices
-hseq=c(0.1,0.5,2.5)
+hseq=c(0.5,1,1.5)
 #grid on feature space
 xseq=seq(-3,3,by=0.01)
 
 plot_result=data.frame()
 for(i in 1:2){
   for(j in 1:3){
-    result_band=randomization_effect(i,nrep=5,hseq[j])
+    result_band=randomization_effect(i,nrep=100,hseq[j])
     result_band=cbind(result_band,i)
     result_band=cbind(result_band,hseq[j])
     result_band=cbind(result_band,xseq)
     plot_result=rbind(plot_result,result_band)
   }
 }
-plot_result=cbind(plot_result,"cutoff")
+plot_result=cbind(plot_result,"threshold")
 colnames(plot_result)=c("oracle_upper","oracle_lower","LCP_upper","LCP_lower","RLCP_UU","RLCP_UL","RLCP_LU","RLCP_LL","setting","h","covariate","ID")
 
 data=simulation(4000,d=1,1)
@@ -111,7 +115,12 @@ for(i in 1:3){
   colnames(result_scatter)=c("oracle_upper","oracle_lower","LCP_upper","LCP_lower","RLCP_UU","RLCP_UL","RLCP_LU","RLCP_LL","setting","h","covariate","ID")
   plot_result=rbind(plot_result,result_scatter)
 }
+write.csv(plot_result,"../results/simul_rlcp_band.csv")
 
+#----------------------------------------------------------
+#--------------------visualization-------------------------
+#----------------------------------------------------------
+plot_result=read.csv("../results/simul_rlcp_band.csv")[,-1]
 colnames(plot_result)=c("oracle_upper","oracle_lower","LCP_upper","LCP_lower","RLCP_UU","RLCP_UL","RLCP_LU","RLCP_LL","setting","h","covariate","ID")
 plot_result$oracle_upper=as.numeric(plot_result$oracle_upper)
 plot_result$oracle_lower=as.numeric(plot_result$oracle_lower)
@@ -123,27 +132,37 @@ plot_result$RLCP_LU=as.numeric(plot_result$RLCP_LU)
 plot_result$RLCP_LL=as.numeric(plot_result$RLCP_LL)
 plot_result$covariate=as.numeric(plot_result$covariate)
 
-pdf(file = "../results/simul_randomization_effect.pdf",width = 11,height = 6)
 
-ggplot(plot_result[plot_result$ID %in% c("cutoff"),]) +
+pdf(file = "../results/figures/simul_randomization_effect.pdf",width = 12,height = 8)
+
+cols<-c("RLCP"="maroon","oracle"="black","calLCP"="gold3")
+linetypes<-c("RLCP"="solid",oracle="dotted","calLCP"="solid")
+ggplot(plot_result[plot_result$ID %in% c("threshold"),]) +
   geom_point(data=plot_result[plot_result$ID %in% c("scatter"),],aes(x=covariate,y=oracle_upper),shape=1,col="gray",alpha=0.3)+
   facet_grid(setting~h ,labeller=label_bquote(rows = paste("Setting ", .(setting)),cols= h ==.(h)))+
-  geom_line(aes(x=covariate,y=oracle_upper,color="black"),linetype="dashed")+
-  geom_line(aes(x=covariate,y=oracle_lower,color="black"),linetype="dashed")+
-  geom_line(aes(x=covariate,y=LCP_upper,color="gold3"),lwd=1.05)+
-  geom_line(aes(x=covariate,y=LCP_lower,color="gold3"),lwd=1.05)+
-  geom_ribbon(aes(x=covariate,ymin=RLCP_UL,ymax=RLCP_UU,color="maroon"),alpha=0.3)+
-  geom_ribbon(aes(x=covariate,ymin=RLCP_LL,ymax=RLCP_LU,color="maroon"),alpha=0.3)+
+  geom_line(aes(x=covariate,y=oracle_upper,color="oracle",linetype="oracle"),lwd=1)+
+  geom_line(aes(x=covariate,y=oracle_lower,color="oracle",linetype="oracle"),lwd=1)+
+  geom_line(aes(x=covariate,y=LCP_upper,color="calLCP",linetype="calLCP"),lwd=1.05)+
+  geom_line(aes(x=covariate,y=LCP_lower,color="calLCP",linetype="calLCP"),lwd=1.05)+
+  geom_line(aes(x=covariate,y=RLCP_UL,color="RLCP",linetype="RLCP"),lwd=0.5)+
+  geom_line(aes(x=covariate,y=RLCP_UU,color="RLCP",linetype="RLCP"),lwd=0.5)+
+  geom_line(aes(x=covariate,y=RLCP_LL,color="RLCP",linetype="RLCP"),lwd=0.5)+
+  geom_line(aes(x=covariate,y=RLCP_LU,color="RLCP",linetype="RLCP"),lwd=0.5)+
   xlim(-3.5,3.5)+
+  scale_color_manual(name="Method",values=cols,breaks=c("oracle","calLCP","RLCP"))+
+  scale_linetype_manual(name="Method",values=linetypes,breaks=c("oracle","calLCP","RLCP"))+
   scale_y_continuous(n.breaks=6)+
   labs(color="Method",x="Feature X",y=" ")+
+  geom_ribbon(aes(x=covariate,ymin=RLCP_LL,ymax=RLCP_LU),color="maroon",alpha=0.4)+
+  geom_ribbon(aes(x=covariate,ymin=RLCP_UL,ymax=RLCP_UU),color="maroon",alpha=0.4)+
   theme_bw()+
-  theme(strip.text = element_text(size = 12),
-        legend.text=element_text(size=12))+
-  scale_color_identity(name="Method",
-                       breaks=c("black","gold3","maroon"),
-                       labels=c("oracle","calLCP","RLCP"),
-                       guide="legend")
+  theme(strip.text = element_text(size = 18),
+        legend.text=element_text(size=18),
+        axis.text=element_text(size=18),
+        axis.title=element_text(size=18),
+        legend.title=element_text(size=18),
+        legend.spacing.y = unit(0.3,'cm'))+
+  guides(color = guide_legend(byrow = TRUE))
 dev.off()
 
 #---------------------------------------------------------------------------
@@ -161,22 +180,22 @@ RLCP_deviation=function(setting,nrep,h,k){
   #----------calibration data--------------------------
   calib_data=simulation(ncalib,d,setting)
   Xcalib=as.matrix(calib_data[,-1])
-  Vcalib=abs(calib_data$Y-predict(model_lm,newdata=calib_data))
+  scores_calib=abs(calib_data$Y-predict(model_lm,newdata=calib_data))
   
   #-------------test data------------------------------
   test_data=conditional_simulation(100,setting)
   Xtest=as.matrix(test_data[,-1])
-  Vtest=abs(test_data$Y-predict(model_lm,newdata=test_data))
+  scores_test=abs(test_data$Y-predict(model_lm,newdata=test_data))
   
   #-----------evaluating the competing methods----------
   set.seed(NULL)
-  Vcutoffs_RLCP=matrix(0,nrow=dim(Xtest)[1],ncol=nrep)
+  scores_threshold_RLCP=matrix(0,nrow=dim(Xtest)[1],ncol=nrep)
   for(k in 1:nrep){
-    RLCP_res=RLCP(Xcalib,Vcalib,Xtest,Vtest,"gaussian",h,alpha)
-    Vcutoffs_RLCP[,k]=RLCP_res[,2]
-    Vcutoffs_RLCP[Vcutoffs_RLCP[,k]==Inf,k]=max(Vcalib,Vtest)+0.2
+    RLCP_res=RLCP(Xcalib,scores_calib,Xtest,scores_test,"gaussian",h,alpha)
+    scores_threshold_RLCP[,k]=RLCP_res[,2]
+    scores_threshold_RLCP[scores_threshold_RLCP[,k]==Inf,k]=max(scores_calib,scores_test)+0.2
   }
-  width=2*Vcutoffs_RLCP
+  width=2*scores_threshold_RLCP
   deviation=function(x){median(abs(x-median(x)))/median(x)}
   
   return(mean(apply(width,1,deviation)))
@@ -186,7 +205,7 @@ library(doParallel)
 numcores=detectCores()-1
 cl=makeCluster(numcores)
 registerDoParallel(cl)
-hseq=seq(0.1,2.5,by=0.2)
+hseq=seq(0.1,2.1,by=0.2)
 
 
 deviation_est=matrix(0,ncol=length(hseq),nrow=2)
@@ -194,26 +213,33 @@ for(j in 1:2){
   for(i in 1:length(hseq)){
     h=hseq[i]
     print(h)
-    result_h=foreach(k=1:100,.combine="+",
+    result_h=foreach(k=1:30,.combine="+",
                      .packages = c("MASS","parallel","doParallel",
                                    "foreach","mvtnorm","randomForest",
                                    "neuralnet")) %dopar% {
-                                     RLCP_deviation(setting=j,100,h,k)
+                                     RLCP_deviation(setting=j,50,h,k)
                                    }
-    deviation_est[j,i]=result_h/100
+    deviation_est[j,i]=result_h/30
   }
 }
 stopCluster(cl)
 
+write.csv(deviation_est,"../results/simul_deviation_estimates.csv")
+
+
 #--------------------------------------------------------------
 #---------------------------visualization----------------------
 #--------------------------------------------------------------
-deviation_simul_df=c(deviation_est[1,],deviation_est[2,])
+deviation_est=read.csv("../results/simul_deviation_estimates.csv")[,-1]
+deviation_simul_df=c(unlist(deviation_est[1,]),unlist(deviation_est[2,]))
 deviation_simul_df=cbind(deviation_simul_df,rep(hseq,2))
 deviation_simul_df=cbind(deviation_simul_df,rep(c(1,2),each=length(hseq)))
 deviation_simul_df=as.data.frame(deviation_simul_df)
 colnames(deviation_simul_df)=c("deviation","h","setting")
 deviation_simul_df$setting=as.factor(deviation_simul_df$setting)
+deviation_simul_df$deviation=as.numeric(deviation_simul_df$deviation)
+deviation_simul_df$h=as.numeric(deviation_simul_df$h)
+
 
 deviation_simul=ggplot(deviation_simul_df,aes(x=h,y=deviation,linetype=setting))+
   geom_line()+geom_point()+

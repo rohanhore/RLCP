@@ -15,11 +15,11 @@ suppressPackageStartupMessages(library(neuralnet))
 suppressPackageStartupMessages(library(caret))
 suppressPackageStartupMessages(library(dplyr))
 suppressPackageStartupMessages(library(gridExtra))
-
+suppressPackageStartupMessages(library(ggplot2))
 #--------------------------------------------------------
 #--------data loading & pre-processing-------------------
 #--------------------------------------------------------
-data=read.csv("Train_Data.csv",header=T)
+data=read.csv("/Users/rohanhore/Dropbox/My projects/rLCP/Data/Insurance Dataset/Train_Data.csv",header=T)
 data=as.data.frame(data)
 data=data %>% distinct()
 #disregarding the children and region information
@@ -72,12 +72,12 @@ coverage_smoker=function(coverage,test_data){
 #-----------------RLCP for real data-----------------------
 #----------------------------------------------------------
 
-RLCP_real=function(Xcalib,Vcalib,Xtest,Vtest,h,alpha){
+RLCP_real=function(Xcalib,scores_calib,Xtest,scores_test,h,alpha){
   ntest=dim(Xtest)[1];d=dim(Xtest)[2]
-  coverage=cutoff=rep(0,ntest)
-  Xcalib=as.matrix(Xcalib[order(Vcalib),]);Vcalib=sort(Vcalib)
+  coverage=threshold=rep(0,ntest)
+  Xcalib=as.matrix(Xcalib[order(scores_calib),]);scores_calib=sort(scores_calib)
   
-  scores=c(Vcalib,Inf)
+  scores=c(scores_calib,Inf)
   indices=list();j=1;i=1
   scores_unique=vector()
   while(i<=length(scores)){
@@ -87,7 +87,7 @@ RLCP_real=function(Xcalib,Vcalib,Xtest,Vtest,h,alpha){
   }
   
   for(i in 1:ntest){
-    xtest=Xtest[i,];vtest=Vtest[i]
+    xtest=Xtest[i,];test_score=scores_test[i]
     xtilde_test=xtest
     xtilde_test[c(1,3)]=xtest[c(1,3)]+runif(2,min=-h,max=h)
     
@@ -96,24 +96,24 @@ RLCP_real=function(Xcalib,Vcalib,Xtest,Vtest,h,alpha){
     weights=apply(abs(sweep(cov_data,2,as.numeric(xtilde_test),"-")),1,FUN=function(x) all(x<=c(h,0,h,0))+0)
     result=smoothed_weighted_quantile(scores_unique,alpha,weights,indices)
     
-    cutoff[i]=result[1]
+    threshold[i]=result[1]
     closed=result[2]
-    coverage[i]=(vtest<cutoff[i])+0
-    if(closed==TRUE){coverage[i]=(vtest<=cutoff[i])+0}
+    coverage[i]=(test_score<threshold[i])+0
+    if(closed==TRUE){coverage[i]=(test_score<=threshold[i])+0}
   }
-  return(cbind(coverage,cutoff))
+  return(cbind(coverage,threshold))
 }
 
 #-----------------------------------------------------------
 #-----------------baseLCP for real data---------------------
 #-----------------------------------------------------------
 
-baseLCP_real=function(Xcalib,Vcalib,Xtest,Vtest,h,alpha){    
+baseLCP_real=function(Xcalib,scores_calib,Xtest,scores_test,h,alpha){    
   ntest=dim(Xtest)[1];d=dim(Xtest)[2]
-  coverage=cutoff=rep(0,ntest)
-  Xcalib=as.matrix(Xcalib[order(Vcalib),]);Vcalib=sort(Vcalib)
+  coverage=threshold=rep(0,ntest)
+  Xcalib=as.matrix(Xcalib[order(scores_calib),]);scores_calib=sort(scores_calib)
   
-  scores=c(Vcalib,Inf)
+  scores=c(scores_calib,Inf)
   indices=list();j=1;i=1
   scores_unique=vector()
   while(i<=length(scores)){
@@ -123,28 +123,28 @@ baseLCP_real=function(Xcalib,Vcalib,Xtest,Vtest,h,alpha){
   }
   
   for(i in 1:ntest){
-    xtest=Xtest[i,];vtest=Vtest[i]
+    xtest=Xtest[i,];test_score=scores_test[i]
     cov_data=rbind(Xcalib,xtest)
     
     weights=apply(sweep(cov_data,2,as.numeric(xtest)),1,FUN=function(x) all(x<=c(h,0,h,0))+0)
     result=smoothed_weighted_quantile(scores_unique,alpha,weights,indices)
-    cutoff[i]=result[1]
+    threshold[i]=result[1]
     closed=result[2]
-    coverage[i]=(vtest<cutoff[i])+0
-    if(closed==TRUE){coverage[i]=(vtest<=cutoff[i])+0}
+    coverage[i]=(test_score<threshold[i])+0
+    if(closed==TRUE){coverage[i]=(test_score<=threshold[i])+0}
   }
-  return(cbind(coverage,cutoff))
+  return(cbind(coverage,threshold))
 }
 
 #------------------------------------------------------------
 #-----------------calLCP for real data-----------------------
 #------------------------------------------------------------
 
-calLCP_real=function(Xcalib,Vcalib,Xtest,Vtest,h,alpha){
+calLCP_real=function(Xcalib,scores_calib,Xtest,scores_test,h,alpha){
   ntest=dim(Xtest)[1];d=dim(Xtest)[2];ncalib=dim(Xcalib)[1]
-  coverage=cutoff=rep(0,ntest)
-  Xcalib=as.matrix(Xcalib[order(Vcalib),])
-  Vcalib=(sort(Vcalib))
+  coverage=threshold=rep(0,ntest)
+  Xcalib=as.matrix(Xcalib[order(scores_calib),])
+  scores_calib=(sort(scores_calib))
   
   H=matrix(0,nrow=ncalib,ncol=ncalib)
   for(i in 1:ncalib){
@@ -152,7 +152,7 @@ calLCP_real=function(Xcalib,Vcalib,Xtest,Vtest,h,alpha){
   }
   denom_calib=apply(H,1,sum)
   num_calib=rep(0,ncalib)
-  for(i in 1:ncalib){num_calib[i]=sum(H[i,]*(Vcalib<Vcalib[i]))}
+  for(i in 1:ncalib){num_calib[i]=sum(H[i,]*(scores_calib<scores_calib[i]))}
 
   p_values=rep(0,ncalib+1)
   for(i in 1:ntest){
@@ -162,9 +162,9 @@ calLCP_real=function(Xcalib,Vcalib,Xtest,Vtest,h,alpha){
       return(sum(x>tail(x,1))/length(x)+(U*sum(x==tail(x,1)))/length(x))
     }
     
-    xtest=Xtest[i,];vtest=Vtest[i]
+    xtest=Xtest[i,];test_score=scores_test[i]
     cov_data=rbind(Xcalib,xtest)
-    scores=c(Vcalib,Inf)
+    scores=c(scores_calib,Inf)
     
     weights=apply(sweep(cov_data,2,as.numeric(xtest)),1,FUN=function(x) all(x<=c(h,0,h,0))+0)
     
@@ -180,27 +180,32 @@ calLCP_real=function(Xcalib,Vcalib,Xtest,Vtest,h,alpha){
       T_values[j-1]=(num_calib[j-1])/(denom_calib[j-1]+weights[j-1])
       p_values[j]=smoothed_p_value(T_values)
     }
-    id=max(which(p_values>alpha));closed=TRUE
-    if(id<=ncalib){
-      T_values[ncalib+1]=sum(weights*(scores<scores[id]))/sum(weights)
-      for(j in 1:id){T_values[j]=(num_calib[j])/(denom_calib[j]+weights[j])}
-      if(id<ncalib){
-        for(j in (id+1):ncalib){T_values[j]=(num_calib[j])/(denom_calib[j]+weights[j])}}
-      closed=(smoothed_p_value(T_values)>alpha)
-    }
-      cutoff[i]=scores[id]
     
-    if(closed==TRUE){coverage[i]=(vtest<=cutoff[i])+0}
-    else{coverage[i]=(vtest<cutoff[i])+0}
+    #if pvalue is never greater than alpha, we output the empty set.
+    if(sum((p_values>alpha))>0){
+      id=max(which(p_values>alpha));closed=FALSE
+      if(id<=ncalib){
+        T_values[ncalib+1]=sum(weights*(scores<scores[id]))/sum(weights)
+        for(j in 1:id){T_values[j]=(num_calib[j])/(denom_calib[j]+weights[j])}
+        if(id<ncalib){
+          for(j in (id+1):ncalib){T_values[j]=(num_calib[j])/(denom_calib[j]+weights[j])}}
+        closed=(smoothed_p_value(T_values)>alpha)
+      }
+      threshold[i]=scores[id]
+      
+      if(closed==TRUE){coverage[i]=(test_score<=threshold[i])+0}
+      else{coverage[i]=(test_score<threshold[i])+0}
+    }
+    else{coverage[i]=0;score_threshold[i]=-Inf}
   }
-  return(cbind(coverage,cutoff))
+  return(cbind(coverage,threshold))
 }
 
 #-------------------------------------------------------------------------------
 #--------------analyzing marginal,local coverages for real data-----------------
 #-------------------------------------------------------------------------------
 real_analysis=function(h,k){
-  split=sample(1:3,n,replace=TRUE,prob=c(1/5,2/5,2/5))
+  split=sample(1:3,n,replace=TRUE,prob=c(1/3,1/3,1/3))
   train_data=data[split==1,];ntrain=dim(train_data)[1]
   calib_data=data[split==2,];ncalib=dim(calib_data)[1]
   test_data=data[split==3,];ntest=dim(test_data)[1]
@@ -411,7 +416,7 @@ plot2=ggplot(plot_result, aes(x=h, y = width, color=CP_method)) +
 
 
 
-pdf(file = "../results/realdata_marginal_results.pdf",width = 9, height = 4) 
+pdf(file = "../results/figures/realdata_marginal_results.pdf",width = 10, height = 3) 
 grid.arrange(plot1,plot2,ncol=2,widths=c(2.6,3))
 dev.off()
 
@@ -421,7 +426,7 @@ dev.off()
 
 smoker_cov=matrix(0,nrow=2*length(hseq),ncol=9)
 for(i in 1:length(hseq)){
-  smoker_cov[(2*(i-1)+1):(2*i),]=matrix(unlist(real_result[[i]][5]),nrow=2,byrow=F)
+  smoker_cov[(2*(i-1)+1):(2*i),]=matrix(unlist(real_result[[i]][4]),nrow=2,byrow=F)
 }
 write.csv(smoker_cov,"../results/real_data_smoker_cov.csv")
 
@@ -482,7 +487,7 @@ plot4=ggplot(plot_result[plot_result$h %in% c(2,6),], aes(x = bmi, y = coverage,
   labs(color="Method",x="BMI Quantile",y="Local Coverage")
 
 
-pdf(file = "/Users/rohanhore/Dropbox/My projects/rLCP/Results/realdata_conditional_results.pdf",width = 13, height = 5) 
+pdf(file = "../results/figures/realdata_conditional_results.pdf",width = 13, height = 5) 
 grid.arrange(plot3,plot4,ncol=2,widths=c(2.6,3))
 dev.off()
 

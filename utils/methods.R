@@ -53,15 +53,14 @@ smoothed_weighted_quantile=function(v,alpha,w,indices){
   p_values[length(v_tilde)]=U*(tail(w_tilde,1))
   
   #if pvalue is never greater than alpha, we output the empty set.
-  if(sum((p_values>alpha))>0){id=max(which(p_values>alpha))}
-  else{return(c(-Inf,TRUE))}
-  
-  #now we check, whether the prediction interval will be a closed interval or open.
-  quantile=v_tilde[id]
-  if(id<length(v_tilde)-1){closed=(sum(w_tilde[(id+1):(length(v_tilde)-1)])+U*(w_tilde[id]+tail(w_tilde,1))>alpha)}
-  if(id==length(v_tilde)){closed=FALSE}
-  if(id==length(v_tilde)-1){closed=(U*(w_tilde[id]+tail(w_tilde,1))>alpha)}
-  
+  if(sum((p_values>alpha))>0){
+    id=max(which(p_values>alpha))
+    #now we check, whether the prediction interval will be a closed interval or open.
+    quantile=v_tilde[id]
+    if(id<length(v_tilde)-1){closed=(sum(w_tilde[(id+1):(length(v_tilde)-1)])+U*(w_tilde[id]+tail(w_tilde,1))>alpha)}
+    if(id==length(v_tilde)){closed=FALSE}
+    if(id==length(v_tilde)-1){closed=(U*(w_tilde[id]+tail(w_tilde,1))>alpha)}}
+  else{quantile=-Inf;closed=FALSE}
   return(c(quantile,closed))
 }
 
@@ -78,7 +77,7 @@ optimum_calLCP_h=function(Xtrain,kernel,h_min,eff_size){
   eff.size=function(h){
     H=matrix(0,nrow=ntrain,ncol=ntrain)
     for(i in 1:ntrain){
-      if(kernel=="gaussian"){H[i,]=dmvnorm(Xtrain,mean=Xtrain[i,],sigma=diag(d)*h)}
+      if(kernel=="gaussian"){H[i,]=dmvnorm(Xtrain,mean=Xtrain[i,],sigma=diag(d)*h^2)}
       if(kernel=="box"){H[i,]=apply(Xtrain,1,FUN=function(x){(euclid_distance(x,Xtrain[i,])<=h)+0})}
       H[i,]=H[i,]/sum(H[i,])
     }
@@ -87,7 +86,7 @@ optimum_calLCP_h=function(Xtrain,kernel,h_min,eff_size){
   }
   
   #candidate bandwidth choice grid, starting from the user-define minimum value.
-  candidate_bandwidths=seq(h_min,25,by=0.25)
+  candidate_bandwidths=seq(h_min,6,by=0.02)
   
   #finding optimum bandwidth choice
   i=1;optimizer=0
@@ -113,8 +112,8 @@ optimum_RLCP_h=function(Xtrain,kernel,h_min,eff_size){
     H=matrix(0,nrow=ntrain,ncol=ntrain)
     for(i in 1:ntrain){
       if(kernel=="gaussian"){
-        xtilde_train=rmvnorm(1,mean=Xtrain[i,],sigma=diag(d)*h)
-        H[i,]=dmvnorm(Xtrain,mean=xtilde_train,sigma=diag(d)*h)
+        xtilde_train=rmvnorm(1,mean=Xtrain[i,],sigma=diag(d)*h^2)
+        H[i,]=dmvnorm(Xtrain,mean=xtilde_train,sigma=diag(d)*h^2)
       }
       if(kernel=="box"){
         xtilde_train=runifball(1,Xtrain[i,],h)
@@ -127,7 +126,7 @@ optimum_RLCP_h=function(Xtrain,kernel,h_min,eff_size){
   }
   
   #candidate bandwidth choice grid, starting from the user-define minimum value.
-  candidate_bandwidths=seq(h_min,25,by=0.25)
+  candidate_bandwidths=seq(h_min,6,by=0.02)
   
   #finding optimum bandwidth choice
   i=1;optimizer=0
@@ -143,18 +142,18 @@ optimum_RLCP_h=function(Xtrain,kernel,h_min,eff_size){
 ####---------------Locally Weighted CP Methods--------------------------#####
 ####--------------------------------------------------------------------#####
 
-#---------------------------------------------------
+#--------------------------------------------------
 #-----------------------RLCP-----------------------
-#---------------------------------------------------
-RLCP=function(Xcalib,Vcalib,Xtest,Vtest,kernel,h,alpha){
+#--------------------------------------------------
+RLCP=function(Xcalib,scores_calib,Xtest,scores_test,kernel,h,alpha){
   ntest=dim(Xtest)[1];d=dim(Xtest)[2]
-  coverage=cutoff=rep(0,ntest)
+  coverage=score_threshold=rep(0,ntest)
   
   #sorting with respect to the order of calibration scores.
-  Xcalib=as.matrix(Xcalib[order(Vcalib),]);Vcalib=sort(Vcalib)
+  Xcalib=as.matrix(Xcalib[order(scores_calib),]);scores_calib=sort(scores_calib)
   
   #finding unique scores and the indices where each of these unique scores have been repeated.
-  scores=c(Vcalib,Inf)
+  scores=c(scores_calib,Inf)
   indices=list();j=1;i=1
   scores_unique=vector()
   while(i<=length(scores)){
@@ -164,13 +163,13 @@ RLCP=function(Xcalib,Vcalib,Xtest,Vtest,kernel,h,alpha){
   }
   
   for(i in 1:ntest){
-    xtest=Xtest[i,];vtest=Vtest[i]
+    xtest=Xtest[i,];test_score=scores_test[i]
     cov_data=rbind(Xcalib,xtest)
     
-    #finding the weights and the smoothed weighted quantile cutoffs
+    #finding the weights and the score threshold
     if(kernel=="gaussian"){
-      xtilde_test=rmvnorm(1,mean=xtest,sigma=diag(d)*h)
-      weights=dmvnorm(cov_data,mean=xtilde_test,sigma=diag(d)*h)
+      xtilde_test=rmvnorm(1,mean=xtest,sigma=diag(d)*h^2)
+      weights=dmvnorm(cov_data,mean=xtilde_test,sigma=diag(d)*h^2)
       result=smoothed_weighted_quantile(scores_unique,alpha,weights,indices)
     }
     if(kernel=="box"){
@@ -179,28 +178,28 @@ RLCP=function(Xcalib,Vcalib,Xtest,Vtest,kernel,h,alpha){
       result=smoothed_weighted_quantile(scores_unique,alpha,weights,indices)
     }
     
-    cutoff[i]=result[1] #cutoff
+    score_threshold[i]=result[1] #score_threshold
     closed=result[2]   #whether it's a closed interval
     
     #coverage
-    coverage[i]=(vtest<cutoff[i])+0
-    if(closed==TRUE){coverage[i]=(vtest<=cutoff[i])+0}
+    coverage[i]=(test_score<score_threshold[i])+0
+    if(closed==TRUE){coverage[i]=(test_score<=score_threshold[i])+0}
   }
-  return(cbind(coverage,cutoff))
+  return(cbind(coverage,score_threshold))
 }
 
 #---------------------------------------------------
 #---------------------baseLCP-----------------------
 #---------------------------------------------------
-baseLCP=function(Xcalib,Vcalib,Xtest,Vtest,kernel,h,alpha){
+baseLCP=function(Xcalib,scores_calib,Xtest,scores_test,kernel,h,alpha){
   ntest=dim(Xtest)[1];d=dim(Xtest)[2]
-  coverage=cutoff=rep(0,ntest)
+  coverage=score_threshold=rep(0,ntest)
   
   #sorting with respect to the order of calibration scores.
-  Xcalib=as.matrix(Xcalib[order(Vcalib),]);Vcalib=sort(Vcalib)
+  Xcalib=as.matrix(Xcalib[order(scores_calib),]);scores_calib=sort(scores_calib)
   
   #finding unique scores and the indices where each of these unique scores have been repeated.
-  scores=c(Vcalib,Inf)
+  scores=c(scores_calib,Inf)
   indices=list();j=1;i=1
   scores_unique=vector()
   while(i<=length(scores)){
@@ -210,43 +209,43 @@ baseLCP=function(Xcalib,Vcalib,Xtest,Vtest,kernel,h,alpha){
   }
   
   for(i in 1:ntest){
-    xtest=Xtest[i,];vtest=Vtest[i]
+    xtest=Xtest[i,];test_score=scores_test[i]
     cov_data=rbind(Xcalib,xtest)
     
-    #finding the weights and the smoothed weighted quantile cutoffs
+    #finding the weights and the score threshold
     if(kernel=="gaussian"){
-      weights=dmvnorm(cov_data,mean=xtest,sigma=diag(d)*h)
+      weights=dmvnorm(cov_data,mean=xtest,sigma=diag(d)*h^2)
       result=smoothed_weighted_quantile(scores_unique,alpha,weights,indices)
     }
     if(kernel=="box"){
       weights=apply(cov_data,1,FUN=function(x){(euclid_distance(x,xtest)<=h)+0})
       result=smoothed_weighted_quantile(scores_unique,alpha,weights,indices)
     }
-    cutoff[i]=result[1] #cutoff
+    score_threshold[i]=result[1] #score_threshold
     closed=result[2]   #whether it's a closed interval
     
     #coverage
-    coverage[i]=(vtest<cutoff[i])+0
-    if(closed==TRUE){coverage[i]=(vtest<=cutoff[i])+0}
+    coverage[i]=(test_score<score_threshold[i])+0
+    if(closed==TRUE){coverage[i]=(test_score<=score_threshold[i])+0}
   }
-  return(cbind(coverage,cutoff))
+  return(cbind(coverage,score_threshold))
 }
 
 #---------------------------------------------------
 #---------------------calLCP------------------------
 #---------------------------------------------------
-calLCP=function(Xcalib,Vcalib,Xtest,Vtest,kernel,h,alpha){
+calLCP=function(Xcalib,scores_calib,Xtest,scores_test,kernel,h,alpha){
   ntest=dim(Xtest)[1];d=dim(Xtest)[2];ncalib=dim(Xcalib)[1]
-  coverage=cutoff=rep(0,ntest)
+  coverage=score_threshold=rep(0,ntest)
   
   #sorting with respect to the order of calibration scores.
-  Xcalib=as.matrix(Xcalib[order(Vcalib),])
-  Vcalib=(sort(Vcalib))
+  Xcalib=as.matrix(Xcalib[order(scores_calib),])
+  scores_calib=(sort(scores_calib))
   
   #finding the un-normalized weight matrix on the calibration set.
   H=matrix(0,nrow=ncalib,ncol=ncalib)
   for(i in 1:ncalib){
-    if(kernel=="gaussian"){H[i,]=dmvnorm(Xcalib,mean=Xcalib[i,],sigma=diag(d)*h)}
+    if(kernel=="gaussian"){H[i,]=dmvnorm(Xcalib,mean=Xcalib[i,],sigma=diag(d)*h^2)}
     if(kernel=="box"){H[i,]=apply(Xcalib,1,FUN=function(x){(euclid_distance(x,Xcalib[i,])<=h)+0})}
   }
   
@@ -254,7 +253,7 @@ calLCP=function(Xcalib,Vcalib,Xtest,Vtest,kernel,h,alpha){
   denom_calib=apply(H,1,sum)
   #numerator of transformed score if the original test score is Infinite.
   num_calib=rep(0,ncalib)
-  for(i in 1:ncalib){num_train[i]=sum(H[i,]*(Vcalib<Vcalib[i]))}
+  for(i in 1:ncalib){num_calib[i]=sum(H[i,]*(scores_calib<scores_calib[i]))}
 
   for(i in 1:ntest){
     U=runif(1,0,1);p_values=rep(0,ncalib+1)
@@ -262,18 +261,18 @@ calLCP=function(Xcalib,Vcalib,Xtest,Vtest,kernel,h,alpha){
     #defining smoothed p-value for calLCP in terms of transformed scores.
     smoothed_p_value=function(x){return(sum(x>tail(x,1))/length(x)+(U*sum(x==tail(x,1)))/length(x))}
     
-    xtest=Xtest[i,];vtest=Vtest[i]
+    xtest=Xtest[i,];test_score=scores_test[i]
     cov_data=rbind(Xcalib,xtest)
-    scores=c(Vcalib,Inf)
+    scores=c(scores_calib,Inf)
     
     #weights of the test point on itself and all the calibration points.
-    if(kernel=="gaussian"){weights=dmvnorm(cov_data,mean=xtest,sigma=diag(d)*h)}
+    if(kernel=="gaussian"){weights=dmvnorm(cov_data,mean=xtest,sigma=diag(d)*h^2)}
     if(kernel=="box"){weights=apply(cov_data,1,FUN=function(x){(euclid_distance(x,xtest)<=h)+0})}
     
     #computing the transformed scores when v is smaller than all calibration points.
     T_values=rep(0,ncalib+1)
     for(j in 1:ncalib){
-      T_values[j]=(num_train[j]+weights[j])/(denom_train[j]+weights[j])
+      T_values[j]=(num_calib[j]+weights[j])/(denom_calib[j]+weights[j])
     }
     T_values[ncalib+1]=sum(weights*(scores<scores[1]))/sum(weights)
     #the corresponding smoothed p-value.
@@ -283,59 +282,61 @@ calLCP=function(Xcalib,Vcalib,Xtest,Vtest,kernel,h,alpha){
     for(j in 2:(ncalib+1)){
       #making suitable changes to transformed score T
       T_values[ncalib+1]=sum(weights*(scores<scores[j]))/sum(weights)
-      T_values[j-1]=(num_train[j-1])/(denom_train[j-1]+weights[j-1])
+      T_values[j-1]=(num_calib[j-1])/(denom_calib[j-1]+weights[j-1])
       #corresponding p-value
       p_values[j]=smoothed_p_value(T_values)
     }
     
     #if pvalue is never greater than alpha, we output the empty set.
-    if(sum((p_values>alpha))>0){id=max(which(p_values>alpha))}
-    else{return(c(0,-Inf))}
-    
-    #checking whether it's a closed interval or not.
-    if(id<=ncalib){
-      T_values[ncalib+1]=sum(weights*(scores<scores[id]))/sum(weights)
-      for(j in 1:id){T_values[j]=(num_train[j])/(denom_train[j]+weights[j])}
-      if(id<ncalib){
-        for(j in (id+1):ncalib){T_values[j]=(num_train[j])/(denom_train[j]+weights[j])}}
-      closed=(smoothed_p_value(T_values)>alpha)
-    }
-    cutoff[i]=scores[id]
-    
-    #coverage
-    if(closed==TRUE){coverage[i]=(vtest<=cutoff[i])+0}
-    else{coverage[i]=(vtest<cutoff[i])+0}
+    if(sum((p_values>alpha))>0){
+      id=max(which(p_values>alpha))
+      #checking whether it's a closed interval or not.
+      if(id==ncalib+1){closed=FALSE}
+      if(id<=ncalib){
+        T_values[ncalib+1]=sum(weights*(scores<scores[id]))/sum(weights)
+        for(j in 1:id){T_values[j]=(num_calib[j])/(denom_calib[j]+weights[j])}
+        if(id<ncalib){
+          for(j in (id+1):ncalib){T_values[j]=(num_calib[j])/(denom_calib[j]+weights[j])}}
+        closed=(smoothed_p_value(T_values)>alpha)
+      }
+      score_threshold[i]=scores[id]
+      
+      #coverage
+      if(closed==TRUE){coverage[i]=(test_score<=score_threshold[i])+0}
+      else{coverage[i]=(test_score<score_threshold[i])+0}
+      }
+    else{coverage[i]=0;score_threshold[i]=-Inf}
   }
-  return(cbind(coverage,cutoff))
+  return(cbind(coverage,score_threshold))
 }
 
 #---------------------------------------------------
 #-----------------------mRLCP-----------------------
 #---------------------------------------------------
 ##-----finding coverage for mrLCP for m=10,20,30,.. largest multiple of 10 before m.
-mRLCP=function(Xcalib,Vcalib,Xtest,Vtest,kernel,h,alpha,m){
+mRLCP=function(Xcalib,scores_calib,Xtest,scores_test,kernel,h,alpha,m){
   ntest=dim(Xtest)[1];d=dim(Xtest)[2]
   coverage=matrix(0,nrow=ntest,ncol=(m/10))
   
   for(i in 1:ntest){
-    xtest=Xtest[i,];vtest=Vtest[i]
+    xtest=Xtest[i,];test_score=scores_test[i]
     cov_data=rbind(Xcalib,xtest)
-    scores=c(Vcalib,Inf)
+    scores=c(scores_calib,Inf)
     
     #finding p values for m runs of RLCP.
     pval=rep(0,m)
     for(k in 1:m){
       if(kernel=="gaussian"){
-        xtilde_test=rmvnorm(1,mean=xtest,sigma=diag(d)*h)
-        weights=dmvnorm(cov_data,mean=xtilde_test,sigma=diag(d)*h)
+        xtilde_test=rmvnorm(1,mean=xtest,sigma=diag(d)*h^2)
+        weights=dmvnorm(cov_data,mean=xtilde_test,sigma=diag(d)*h^2)
         weights=weights/sum(weights)
-        pval[k]=sum(head(weights,-1)*(Vcalib>vtest))+sum(weights*(Vcalib==vtest))*runif(1)
+        pval[k]=sum(head(weights,-1)*(scores_calib>test_score))+sum(weights*(scores_calib==test_score))*runif(1)
       }
       if(kernel=="box"){
         xtilde_test=runifball(1,xtest,h)
         weights=apply(cov_data,1,FUN=function(x){(euclid_distance(x,xtilde_test)<=h)+0})
         weights=weights/sum(weights)
-        pval[k]=sum(head(weights,-1)*(Vcalib>vtest))+sum(weights*(Vcalib==vtest))*runif(1)
+        pval[k]=sum(head(weights,-1)*(scores_calib>test_score))+sum(weights*(scores_calib==test_score))*runif(1)
       }
     }
     

@@ -15,11 +15,11 @@ suppressPackageStartupMessages(library(neuralnet))
 suppressPackageStartupMessages(library(caret))
 suppressPackageStartupMessages(library(dplyr))
 suppressPackageStartupMessages(library(gridExtra))
-
+suppressPackageStartupMessages(library(ggplot2))
 #--------------------------------------------------------
 #--------data loading & pre-processing-------------------
 #--------------------------------------------------------
-data=read.csv("Train_Data.csv",header=T)
+data=read.csv("/Users/rohanhore/Dropbox/My projects/rLCP/Data/Insurance Dataset/Train_Data.csv",header=T)
 data=as.data.frame(data)
 data=data %>% distinct()
 #disregarding the children and region information
@@ -48,12 +48,12 @@ scaled_data <- data.frame(predict(dmy, newdata = scaled_data))
 #-----------------RLCP for real data-----------------------
 #----------------------------------------------------------
 
-RLCP_real=function(Xcalib,Vcalib,Xtest,Vtest,h,alpha){
+RLCP_real=function(Xcalib,scores_calib,Xtest,scores_test,h,alpha){
   ntest=dim(Xtest)[1];d=dim(Xtest)[2]
-  coverage=cutoff=rep(0,ntest)
-  Xcalib=as.matrix(Xcalib[order(Vcalib),]);Vcalib=sort(Vcalib)
+  coverage=threshold=rep(0,ntest)
+  Xcalib=as.matrix(Xcalib[order(scores_calib),]);scores_calib=sort(scores_calib)
   
-  scores=c(Vcalib,Inf)
+  scores=c(scores_calib,Inf)
   indices=list();j=1;i=1
   scores_unique=vector()
   while(i<=length(scores)){
@@ -63,7 +63,7 @@ RLCP_real=function(Xcalib,Vcalib,Xtest,Vtest,h,alpha){
   }
   
   for(i in 1:ntest){
-    xtest=Xtest[i,];vtest=Vtest[i]
+    xtest=Xtest[i,];test_score=scores_test[i]
     xtilde_test=xtest
     xtilde_test[c(1,3)]=xtest[c(1,3)]+runif(2,min=-h,max=h)
     
@@ -72,12 +72,12 @@ RLCP_real=function(Xcalib,Vcalib,Xtest,Vtest,h,alpha){
     weights=apply(abs(sweep(cov_data,2,as.numeric(xtilde_test),"-")),1,FUN=function(x) all(x<=c(h,0,h,0))+0)
     result=smoothed_weighted_quantile(scores_unique,alpha,weights,indices)
     
-    cutoff[i]=result[1]
+    threshold[i]=result[1]
     closed=result[2]
-    coverage[i]=(vtest<cutoff[i])+0
-    if(closed==TRUE){coverage[i]=(vtest<=cutoff[i])+0}
+    coverage[i]=(test_score<threshold[i])+0
+    if(closed==TRUE){coverage[i]=(test_score<=threshold[i])+0}
   }
-  return(cbind(coverage,cutoff))
+  return(cbind(coverage,threshold))
 }
 
 #--------------------------------------------------------------
@@ -95,7 +95,6 @@ real_RLCP_deviation=function(h,k,split){
   #------------learning score on train split-------------------------
   Xcalib=calib_data[,1:4];Xcalib[,2]=as.numeric(Xcalib[,2]);Xcalib[,4]=as.numeric(Xcalib[,4])
   Xtest=test_data[,1:4];Xtest[,2]=as.numeric(Xtest[,2]);Xtest[,4]=as.numeric(Xtest[,4])
-  width_lm_RLCP=width_rf_RLCP=width_nn_RLCP=matrix(0,nrow=ntest,ncol=nrep)
   
   #---linear model---------
   model_lm=lm(charges~.,data=train_data)
@@ -104,7 +103,8 @@ real_RLCP_deviation=function(h,k,split){
   scores_lm_test=abs(test_data$charges-predict.lm(model_lm,test_data))
   
   result_lm_RLCP=RLCP_real(Xcalib, scores_lm_calib,Xtest,scores_lm_test,h,0.1)
-  width_lm_RLCP=2*result_lm_RLCP[,2]
+  #result_lm_RLCP[result_lm_RLCP[,2]==Inf,2]=scores_lm_calib
+  width_lm_RLCP=2*abs(result_lm_RLCP[,2])
   
   #----random forest----------
   model_rf=randomForest(charges ~ .,data=train_data)
@@ -113,20 +113,20 @@ real_RLCP_deviation=function(h,k,split){
   scores_rf_test=abs(test_data$charges-predict(model_rf,test_data))
   
   result_rf_RLCP=RLCP_real(Xcalib, scores_rf_calib,Xtest,scores_rf_test,h,0.1)
-  width_rf_RLCP=2*result_rf_RLCP[,2]
+  width_rf_RLCP=2*abs(result_rf_RLCP[,2])
   
   #----------neural net--------------------
   model_nn=neuralnet(charges~.,data = train_scaled_data, hidden = c(5, 3),
                      threshold=0.05,linear.output = TRUE)
-  predict_nn_calib=compute(model_nn,calib_scaled_data[,1:6])$net.result*
+  predict_nn_calib=neuralnet::compute(model_nn,calib_scaled_data[,1:6])$net.result*
     (max_charge-min_charge)+min_charge
-  predict_nn_test=compute(model_nn,test_scaled_data[,1:6])$net.result*
+  predict_nn_test=neuralnet::compute(model_nn,test_scaled_data[,1:6])$net.result*
     (max_charge-min_charge)+min_charge
   scores_nn_calib=abs(calib_data$charges-predict_nn_calib)
   scores_nn_test=abs(test_data$charges-predict_nn_test)
   
-  result_nn_RLCP=RLCP_real(Xcalib, scores_nn_calib,Xtest,scores_nn_test,h,0.1)
-  width_nn_RLCP=as.vector(2*result_nn_RLCP[,2])
+  result_nn_RLCP=RLCP_real(Xcalib,scores_nn_calib,Xtest,scores_nn_test,h,0.1)
+  width_nn_RLCP=as.vector(2*abs(result_nn_RLCP[,2]))
   
   return(list(width_lm_RLCP,width_rf_RLCP,width_nn_RLCP))
 }
@@ -149,7 +149,7 @@ for(i in 1:length(hseq)){
   result_h=rep(0,3)
   start=Sys.time()
   for(k in 1:20){
-    split=sample(1:3,n,replace=TRUE,prob=c(1/5,2/5,2/5))
+    split=sample(1:3,n,replace=TRUE,prob=c(1/3,1/3,1/3))
     result_split=foreach(l=1:30,.combine=comb_rand,
                          .packages = c("MASS","parallel","doParallel",
                                        "foreach","mvtnorm","randomForest",
@@ -187,7 +187,7 @@ deviation_real_df$h=as.numeric(deviation_real_df$h)
 
 deviation_real=ggplot(deviation_real_df,aes(x=h,y=deviation,linetype=setting))+
   geom_line()+geom_point()+
-  scale_linetype_manual(values=c("Linear Model"="dashed","Random Forest"="longdash","Neural Net"="dotdash"))+
+  scale_linetype_manual(values=c("Linear Model"="dashed","Random Forest"="dotted","Neural Net"="dotdash"))+
   labs(x="Bandwidth h",y=expression(D(h)),linetype="Base Method")+
   ggtitle("Deviation D(h) of RLCP in real data setting")+
   theme(axis.title = element_text(size = 16), 
@@ -195,7 +195,7 @@ deviation_real=ggplot(deviation_real_df,aes(x=h,y=deviation,linetype=setting))+
         legend.position = "bottom",
         legend.text = element_text(size=14))
 
-pdf(file = "../results/RLCP_deviation.pdf",width = 13.5, height = 5)
+pdf(file = "../results/figures/RLCP_deviation.pdf",width = 13.5, height = 5)
 gridExtra::grid.arrange(deviation_simul,deviation_real,ncol=2)
 dev.off()
 

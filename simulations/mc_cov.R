@@ -10,7 +10,7 @@ source("../utils/methods.R")
 suppressPackageStartupMessages(library(doParallel))
 suppressPackageStartupMessages(library(MASS))
 suppressPackageStartupMessages(library(mvtnorm))
-
+suppressPackageStartupMessages(library(ggplot2))
 #---------------------------------------------------
 #-----------computing marginal coverage-------------
 #---------------------------------------------------
@@ -25,17 +25,17 @@ mc_onerep=function(k,d,setting){
   #----------calibration data--------------------------
   calib_data=simulation(ncalib,d,setting)
   Xcalib=as.matrix(calib_data[,-1])
-  Vcalib=abs(calib_data$Y-predict(model_lm,newdata=calib_data))
+  scores_calib=abs(calib_data$Y-predict(model_lm,newdata=calib_data))
   
   #-------------test data------------------------------
   test_data=simulation(ntest,d,setting)
   Xtest=as.matrix(test_data[,-1])
-  Vtest=abs(test_data$Y-predict(model_lm,newdata=test_data))
+  scores_test=abs(test_data$Y-predict(model_lm,newdata=test_data))
   
   #-----------computing the PI for competing methods-----------
-  RLCP_res=RLCP(Xcalib,Vcalib,Xtest,Vtest,"gaussian",h,alpha)
-  calLCP_res=calLCP(Xcalib,Vcalib,Xtest,Vtest,"gaussian",h,alpha)
-  baseLCP_res=baseLCP(Xcalib,Vcalib,Xtest,Vtest,"gaussian",h,alpha)
+  RLCP_res=RLCP(Xcalib,scores_calib,Xtest,scores_test,"gaussian",h,alpha)
+  calLCP_res=calLCP(Xcalib,scores_calib,Xtest,scores_test,"gaussian",h,alpha)
+  baseLCP_res=baseLCP(Xcalib,scores_calib,Xtest,scores_test,"gaussian",h,alpha)
   
   #----------coverage-----------------------
   coverage1=mean(RLCP_res[,1])
@@ -59,14 +59,14 @@ mc_onerep=function(k,d,setting){
 #-----------------------uni-variate experiments----------------------
 #--------------------------------------------------------------------
 
-d=1
+d=1;alpha=0.1
 
 numcores=detectCores()-1
 cl=makeCluster(numcores)
 registerDoParallel(cl)
 
 #bandwidth choices
-hseq=c(0.1,0.5,2.5)
+hseq=c(0.5,1,1.5)
 
 #setting 1
 setting=1;ntrain=2000;ncalib=2000;ntest=2000
@@ -81,10 +81,11 @@ for(j in 1:3){
                                  "foreach","mvtnorm")) %dopar% {
                                    mc_onerep(k,d,setting)
                                  }
+  print(colMeans(result_h[,1:3]))
   write.csv(result_h,paste0("../results/setting_1_mc_",h,".csv"))
 }
 
-#settting 2
+#setting 2
 setting=2;ntrain=2000;ncalib=2000;ntest=2000
 #number of repetitions
 nrep=100
@@ -96,6 +97,7 @@ for(j in 1:3){
                                  "foreach","mvtnorm")) %dopar% {
                                    mc_onerep(k,d,setting)
                                  }
+  print(colMeans(result_h[,1:3]))
   write.csv(result_h,paste0("../results/setting_2_mc_",h,".csv"))
 }
 
@@ -138,11 +140,14 @@ marginal_plot=ggplot(plot_result, aes(x = method , y = coverage,fill=method)) +
   scale_fill_manual(values=c("baseLCP"="blue","calLCP"="gold3","RLCP"="maroon"))+
   facet_grid(setting~h,labeller=label_bquote(rows = paste("Setting ", .(setting)),cols= h ==.(h)))+
   theme(plot.title = element_text(hjust = 0.5),
-        legend.position = "none")+
+        legend.position = "none",
+        strip.text = element_text(size = 15),
+        axis.text=element_text(size=15),
+        axis.title=element_text(size=15))+
   labs(x="Method",y="Coverage")
 
 
-pdf(file = "../results/simul_marginal_coverage.pdf",width = 6,height = 5) 
+pdf(file = "../results/figures/simul_marginal_coverage.pdf",width = 10,height = 6) 
 marginal_plot
 dev.off()
 
