@@ -420,6 +420,8 @@ pdf(file = "../results/figures/realdata_marginal_results.pdf",width = 10, height
 grid.arrange(plot1,plot2,ncol=2,widths=c(2.6,3))
 dev.off()
 
+
+
 #-------------------------------------------------------------
 #-----------------------Local coverage results----------------
 #-------------------------------------------------------------
@@ -500,4 +502,5 @@ plot4=ggplot(plot_result[plot_result$h %in% c(2,6),], aes(x = bmi, y = coverage,
 pdf(file = "../results/figures/realdata_conditional_results.pdf",width = 16, height = 5) 
 grid.arrange(plot3,plot4,ncol=2,widths=c(2.6,3))
 dev.off()
+
 

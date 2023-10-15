@@ -2,7 +2,7 @@
 The project aims at developing a locally-weighted conformal prediction algorithm, which can attain meaningful local coverage guarantees in a model-free manner.
 
 ## Overview
-We provide the exact code for reproducing the numerical results in the paper " "
+We provide the exact code for reproducing the numerical results in the paper ["Conformal prediction with local weights: randomization enables robust guarantees"](https://arxiv.org/pdf/2310.07850.pdf).
 
 ## Folders
 - `utils/`: contains the helper functions for all the experiments.
