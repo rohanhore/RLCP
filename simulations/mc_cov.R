@@ -66,14 +66,14 @@ cl=makeCluster(numcores)
 registerDoParallel(cl)
 
 #bandwidth choices
-hseq=c(0.5,1,1.5)
+hseq=c(0.1,0.2,0.4,0.8,1.6)
 
 #setting 1
 setting=1;ntrain=2000;ncalib=2000;ntest=2000
 #number of repetitions
-nrep=100
+nrep=50
 
-for(j in 1:3){
+for(j in 1:length(hseq)){
   h=hseq[j]
   print(h)
   result_h=foreach(k=1:nrep,.combine=rbind,
@@ -88,9 +88,9 @@ for(j in 1:3){
 #setting 2
 setting=2;ntrain=2000;ncalib=2000;ntest=2000
 #number of repetitions
-nrep=100
+nrep=50
 
-for(j in 1:3){
+for(j in 1:length(hseq)){
   h=hseq[j]
   result_h=foreach(k=1:nrep,.combine=rbind,
                    .packages = c("MASS","parallel","doParallel",
@@ -105,7 +105,7 @@ for(j in 1:3){
 #-------------------------Visualization------------------------------
 #--------------------------------------------------------------------
 plot_result=data.frame()
-for(i in 1:3){
+for(i in 1:length(hseq)){
   h=hseq[i]
   result=read.csv(paste0("../results/setting_1_mc_",h,".csv"),header=T)
   result=as.data.frame(result)
@@ -117,7 +117,7 @@ for(i in 1:3){
   colnames(result)=c("coverage","method","setting","h")
   plot_result=rbind(plot_result,result)
 }
-for(i in 1:3){
+for(i in 1:length(hseq)){
   h=hseq[i]
   result=read.csv(paste0("../results/setting_2_mc_",h,".csv"),header=T)
   result=as.data.frame(result)
@@ -141,13 +141,28 @@ marginal_plot=ggplot(plot_result, aes(x = method , y = coverage,fill=method)) +
   facet_grid(setting~h,labeller=label_bquote(rows = paste("Setting ", .(setting)),cols= h ==.(h)))+
   theme(plot.title = element_text(hjust = 0.5),
         legend.position = "none",
-        strip.text = element_text(size = 15),
-        axis.text=element_text(size=15),
-        axis.title=element_text(size=15))+
+        strip.text = element_text(size = 20),
+        axis.text=element_text(size=18),
+        axis.text.x=element_text(size=15,angle=0,vjust=0.5),
+        axis.title=element_text(size=20))+
   labs(x="Method",y="Coverage")
 
 
-pdf(file = "../results/figures/simul_marginal_coverage.pdf",width = 10,height = 6) 
+pdf(file = "../results/figures/simul_marginal_coverage.pdf",width = 15,height = 5) 
 marginal_plot
 dev.off()
 
+# pdf(file = "/Users/rohanhore/Downloads/mar_cov_1.pdf",width = 12,height = 7) 
+# ggplot(plot_result[plot_result$setting==1&plot_result$h%in%c(0.1,0.4,1.6)&plot_result$method!="RLCP",], aes(x = method , y = coverage,fill=method)) +
+#   geom_boxplot() + 
+#   geom_hline(yintercept=0.9,linetype="dashed")+
+#   scale_fill_manual(values=c("baseLCP"="blue","calLCP"="gold3","RLCP"="maroon"))+
+#   facet_grid(.~h,labeller=label_bquote(cols= h ==.(h)))+
+#   theme(plot.title = element_text(hjust = 0.5),
+#         legend.position = "none",
+#         strip.text = element_text(size = 20),
+#         axis.text=element_text(size=18),
+#         axis.text.x=element_text(size=15,angle=0,vjust=0.5),
+#         axis.title=element_text(size=20))+
+#   labs(x="Method",y="Coverage")
+# dev.off()

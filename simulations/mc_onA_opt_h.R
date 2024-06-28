@@ -15,8 +15,8 @@ suppressPackageStartupMessages(library(ggplot2))
 #------------------multivariate experiments-----------------
 #-----------------------------------------------------------
 #dimension choices
-dseq=c(1,5*1:10)
-n=2000
+dseq=c(1,5,10*1:5)
+n=2000;setting=4
 #---set prefixed effective sample size----
 eff_size=50
 
@@ -25,7 +25,7 @@ optimum_RLCP_bandwidth=optimum_calLCP_bandwidth=rep(0,length(dseq))
 for(i in 1:length(dseq)){
   if(i==1){h_min_RLCP=h_min_calLCP=0.02}
   else{h_min_RLCP=optimum_RLCP_bandwidth[i-1];h_min_calLCP=optimum_calLCP_bandwidth[i-1]}
-  Xtrain=as.matrix(simulation(n,dseq[i],1)[,-1]) 
+  Xtrain=as.matrix(simulation(n,dseq[i],setting)[,-1]) 
   optimum_RLCP_bandwidth[i]=optimum_RLCP_h(Xtrain,"gaussian",h_min_RLCP,eff_size)
   optimum_calLCP_bandwidth[i]=optimum_calLCP_h(Xtrain,"gaussian",h_min_calLCP,eff_size)
 }
@@ -64,7 +64,12 @@ mccs_coverage_optimized=function(k,setting,j,p_seq){
   
   #----------coverage-----------------------
   for(i in 1:length(p_seq)){
-    threshold=qchisq(p_seq[i],d)
+    # #for setting 1
+    # threshold=qchisq(p_seq[i],d)
+    
+    #for setting 3/4
+    threshold=(3*(1/2)^(1/d))^2
+      
     ID=ind_set(Xtest,threshold)
     
     coverage1i=mean(RLCP_res[ID,1])
@@ -98,10 +103,14 @@ registerDoParallel(cl)
 #choice of p
 p_seq=0.5
 
-setting=1
+setting=4
 nrep=50;alpha=0.1
 
+#for setting 1/4--L_2 balls
 ind_set=function(X,threshold){which(apply(X,1,FUN=function(x) sum(x^2)<=threshold)==1)}
+
+# #for setting 3---L_infty balls
+# ind_set=function(X,radii){which(apply(X,1,FUN=function(x) max(abs(x))<=radii)==1)}
 
 resultd_1=matrix(0,nrow=length(dseq),ncol=length(p_seq)*18)
 for(j in 1:length(dseq)){
@@ -117,13 +126,14 @@ for(j in 1:length(dseq)){
 stopCluster(cl)
 print(resultd_1)
 
-write.csv(resultd_1,"../results/setting_1_mc_sett1_d_size50.csv")
+#sett1
+write.csv(resultd_1,"../results/setting_1_mc_sett1_d_size50_normal.csv")
 #------------------------------------------------
 #-----------------Visualization------------------
 #------------------------------------------------
 
-resultd_1=read.csv("../results/setting_1_mc_sett1_d_size50.csv")[,-1]
-resultd_1=as.data.frame(resultd_1);dseq=c(1,5*1:10)
+resultd_1=read.csv("../results/setting_1_mc_sett1_d_size50_normal.csv")[,-1]
+resultd_1=as.data.frame(resultd_1)
 
 plot_result1=matrix(0,nrow=9*length(dseq)*length(p_seq),ncol=5)
 plot_result1[,1]=stack(resultd_1[,1:9])$values
@@ -139,9 +149,9 @@ plot_result1$se=as.numeric(plot_result1$se)
 plot_result1$d=as.numeric(plot_result1$d)
 level_order=c('baseLCP','calLCP','RLCP')
 
-pdf(file = "../results/figures/coverage_trend_effective_size_50_optimized_bandwidth.pdf",width = 8,height=4)
+pdf(file = "../results/figures/coverage_trend_effective_size_50_optimized_bandwidth_normal.pdf",width = 8,height=4)
 
-ggplot(plot_result1, aes(x = d, y = coverage,linetype = Set,color=method)) +
+ggplot(plot_result1[plot_result1$method %in% c("calLCP","RLCP"),], aes(x = d, y = coverage,linetype = Set,color=method)) +
   geom_line() + 
   geom_point()+
   geom_errorbar(aes(ymin=coverage-se, ymax=coverage+se), width=.05)+

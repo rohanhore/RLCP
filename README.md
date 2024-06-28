@@ -13,13 +13,15 @@ We provide the exact code for reproducing the numerical results in the paper ["C
 ## Guide for the codes in `simulations/` folder
 ### Codes for reproducing results in Section 5.1
 - marginal coverage `(Figure 1)`: `mc_cov.R/`
-- average prediction interval `(Figure 2)`: `avg_interv.R/`
+- average prediction interval and local coverage `(Figure 2,10 & 11)`: `1d_local_coverage.R/`
 - marginal coverage on subsets with constant bandwidth `(Figure 3)`: `mc_onA_const_h.R/`
 - marginal coverage on subsets with dimension-adaptive bandwidth `(Figure 4)`: `mc_onA_opt_h.R/`
 
 ### Other simulation results from Section 6 and appendix
 - effect of randomization on RLCP prediction interval in simulation settings `(Figure 7 & 8 left)`: `simul_rand_effect.R/`
 - coverage of mRLCP prediction interval `(Figure 9)`: `mRLCP.R/`
+- comparing RLCP with [Gibbs et al.](https://arxiv.org/abs/2305.12616) `(Figure 12)`: `Conformal_comparison.ipynb` and `RLCP_Gibbs_comparison.R`
+- local coverage on grids `(Figure 13)`: `grid_local_coverage.R`
 
 
 ## Guide for the codes in `real_data/` folder

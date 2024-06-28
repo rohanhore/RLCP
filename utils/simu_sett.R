@@ -13,6 +13,13 @@ simulation=function(n,d,setting){
   if(setting==2){
     Y=0.5*apply(X,1,mean)+apply(2*dnorm(X,0,1.5),1,sum)*rnorm(n,0,1)
   }
+  
+  ##setting 3 : P_X uniform on cube
+  if(setting==3){
+    X=matrix(runif(n*d,-3,3),nrow=n,ncol=d)
+    Y=0.5*apply(X,1,mean)+apply(abs(sin(X)),1,sum)*rnorm(n,0,1)
+  }
+  
   data=as.data.frame(cbind(Y,X))
   colnames(data)=c("Y",paste0("X",1:d))
   return(data)

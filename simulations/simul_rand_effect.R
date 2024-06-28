@@ -73,7 +73,7 @@ randomization_effect=function(setting,nrep,h){
 #-----------------experimental results---------------------
 #----------------------------------------------------------
 #bandwidth choices
-hseq=c(0.5,1,1.5)
+hseq=c(0.1,0.4,1.6)
 #grid on feature space
 xseq=seq(-3,3,by=0.01)
 
@@ -136,15 +136,17 @@ plot_result$covariate=as.numeric(plot_result$covariate)
 
 pdf(file = "../results/figures/simul_randomization_effect.pdf",width = 12,height = 8)
 
-cols<-c("RLCP"="maroon","oracle"="black","calLCP"="gold3")
+cols<-c("RLCP"="maroon","oracle"="black","calLCP"="gold2")
 linetypes<-c("RLCP"="solid",oracle="dotted","calLCP"="solid")
 ggplot(plot_result[plot_result$ID %in% c("threshold"),]) +
+  geom_ribbon(aes(x=covariate,ymin=RLCP_LL,ymax=RLCP_LU),fill="maroon",alpha=0.8)+
+  geom_ribbon(aes(x=covariate,ymin=RLCP_UL,ymax=RLCP_UU),fill="maroon",alpha=0.8)+
   geom_point(data=plot_result[plot_result$ID %in% c("scatter"),],aes(x=covariate,y=oracle_upper),shape=1,col="gray",alpha=0.3)+
   facet_grid(setting~h ,labeller=label_bquote(rows = paste("Setting ", .(setting)),cols= h ==.(h)))+
   geom_line(aes(x=covariate,y=oracle_upper,color="oracle",linetype="oracle"),lwd=1)+
   geom_line(aes(x=covariate,y=oracle_lower,color="oracle",linetype="oracle"),lwd=1)+
-  geom_line(aes(x=covariate,y=LCP_upper,color="calLCP",linetype="calLCP"),lwd=1.05)+
-  geom_line(aes(x=covariate,y=LCP_lower,color="calLCP",linetype="calLCP"),lwd=1.05)+
+  geom_line(aes(x=covariate,y=LCP_upper,color="calLCP",linetype="calLCP"),lwd=1)+
+  geom_line(aes(x=covariate,y=LCP_lower,color="calLCP",linetype="calLCP"),lwd=1)+
   geom_line(aes(x=covariate,y=RLCP_UL,color="RLCP",linetype="RLCP"),lwd=0.5)+
   geom_line(aes(x=covariate,y=RLCP_UU,color="RLCP",linetype="RLCP"),lwd=0.5)+
   geom_line(aes(x=covariate,y=RLCP_LL,color="RLCP",linetype="RLCP"),lwd=0.5)+
@@ -154,8 +156,6 @@ ggplot(plot_result[plot_result$ID %in% c("threshold"),]) +
   scale_linetype_manual(name="Method",values=linetypes,breaks=c("oracle","calLCP","RLCP"))+
   scale_y_continuous(n.breaks=6)+
   labs(color="Method",x="Feature X",y=" ")+
-  geom_ribbon(aes(x=covariate,ymin=RLCP_LL,ymax=RLCP_LU),color="maroon",alpha=0.4)+
-  geom_ribbon(aes(x=covariate,ymin=RLCP_UL,ymax=RLCP_UU),color="maroon",alpha=0.4)+
   theme_bw()+
   theme(strip.text = element_text(size = 18),
         legend.text=element_text(size=18),
