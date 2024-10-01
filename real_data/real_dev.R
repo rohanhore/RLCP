@@ -19,28 +19,21 @@ suppressPackageStartupMessages(library(ggplot2))
 #--------------------------------------------------------
 #--------data loading & pre-processing-------------------
 #--------------------------------------------------------
-data=read.csv("Train_Data.csv",header=T)
+data=read.table("abalone.data",sep=",")
 data=as.data.frame(data)
-data=data %>% distinct()
-#disregarding the children and region information
-data=data[,-c(5,6)]
-#log transformation on insurance charges
-data[,5]=log(data[,5])
-
+data=data[,-c(6,7,8)]
+colnames(data)=c("sex","length","diameter","height","whole_weight","rings")
+data$sex=as.factor(data$sex)
+data$sex=dplyr::recode_factor(data$sex,"M" = "1","F" = "0", "I"="2")
 n=dim(data)[1]
-data$sex=as.factor(data$sex);data$smoker=as.factor(data$smoker)
-data$smoker=dplyr::recode_factor(data$smoker,"yes" = "1","no" = "0")
-data$sex=dplyr::recode_factor(data$sex,"male" = "1","female" = "0")
-attach(data);sex=as.factor(sex);smoker=as.factor(smoker)
 
-#scaling data for neural nets
+# scaling data for neural nets
 scaled_data=data
-min_age=min(scaled_data[,1]);max_age=max(scaled_data[,1])
-min_bmi=min(scaled_data[,3]);max_bmi=max(scaled_data[,3])
-scaled_data[,1]=(scaled_data[,1]-min_age)/(max_age-min_age)
-scaled_data[,3]=(scaled_data[,3]-min_bmi)/(max_bmi-min_bmi)
-min_charge=min(scaled_data[,5]);max_charge=max(scaled_data[,5])
-scaled_data[,5]=(scaled_data[,5]-min_charge)/(max_charge-min_charge)
+scaled_data[,-1]=as.matrix(sweep(data[,-1],2,apply(data[,-1],2,min))) %*% 
+  diag(1/(apply(as.matrix(data[,-1]),2,max)-apply(as.matrix(data[,-1]),2,min)))
+max_rings=max(data$rings);min_rings=min(data$rings)
+scaled_data=as.data.frame(scaled_data)
+colnames(scaled_data)=c("sex","length","diameter","height","whole_weight","rings")
 dmy=dummyVars(" ~ .", data = scaled_data)
 scaled_data <- data.frame(predict(dmy, newdata = scaled_data))
 
@@ -65,11 +58,11 @@ RLCP_real=function(Xcalib,scores_calib,Xtest,scores_test,h,alpha){
   for(i in 1:ntest){
     xtest=Xtest[i,];test_score=scores_test[i]
     xtilde_test=xtest
-    xtilde_test[c(1,3)]=xtest[c(1,3)]+runif(2,min=-h,max=h)
+    xtilde_test[2:5]=xtest[2:5]+runif(4,min=-h,max=h)
     
     cov_data=rbind(Xcalib,xtest)
     
-    weights=apply(abs(sweep(cov_data,2,as.numeric(xtilde_test),"-")),1,FUN=function(x) all(x<=c(h,0,h,0))+0)
+    weights=apply(abs(sweep(cov_data,2,as.numeric(xtilde_test),"-")),1,FUN=function(x) all(x<=c(0,rep(h,4)))+0)
     result=smoothed_weighted_quantile(scores_unique,alpha,weights,indices)
     
     threshold[i]=result[1]
@@ -93,39 +86,41 @@ real_RLCP_deviation=function(h,k,split){
   test_scaled_data=scaled_data[split==3,]
   
   #------------learning score on train split-------------------------
-  Xcalib=calib_data[,1:4];Xcalib[,2]=as.numeric(Xcalib[,2]);Xcalib[,4]=as.numeric(Xcalib[,4])
-  Xtest=test_data[,1:4];Xtest[,2]=as.numeric(Xtest[,2]);Xtest[,4]=as.numeric(Xtest[,4])
+  Xcalib=calib_data[,1:5]
+  Xcalib[,1]=as.numeric(levels(calib_data[,1]))[calib_data[,1]]
+  
+  Xtest=test_data[,1:5]
+  Xtest[,1]=as.numeric(levels(test_data[,1]))[test_data[,1]]
   
   #---linear model---------
-  model_lm=lm(charges~.,data=train_data)
+  model_lm=lm(rings~.,data=train_data)
   predict_lm_test=predict(model_lm,newdata=test_data)
-  scores_lm_calib=abs(calib_data$charges-predict.lm(model_lm,calib_data))
-  scores_lm_test=abs(test_data$charges-predict.lm(model_lm,test_data))
+  scores_lm_calib=abs(calib_data$rings-predict.lm(model_lm,calib_data))
+  scores_lm_test=abs(test_data$rings-predict.lm(model_lm,test_data))
   
   result_lm_RLCP=RLCP_real(Xcalib, scores_lm_calib,Xtest,scores_lm_test,h,alpha)
-  #result_lm_RLCP[result_lm_RLCP[,2]==Inf,2]=scores_lm_calib
   width_lm_RLCP=2*abs(result_lm_RLCP[,2])
   
   #----random forest----------
-  model_rf=randomForest(charges ~ .,data=train_data)
+  model_rf=randomForest(rings ~ .,data=train_data)
   predict_rf_test=predict(model_rf,newdata=test_data)
-  scores_rf_calib=abs(calib_data$charges-predict(model_rf,calib_data))
-  scores_rf_test=abs(test_data$charges-predict(model_rf,test_data))
+  scores_rf_calib=abs(calib_data$rings-predict(model_rf,calib_data))
+  scores_rf_test=abs(test_data$rings-predict(model_rf,test_data))
   
   result_rf_RLCP=RLCP_real(Xcalib, scores_rf_calib,Xtest,scores_rf_test,h,alpha)
   width_rf_RLCP=2*abs(result_rf_RLCP[,2])
   
   #----------neural net--------------------
-  model_nn=neuralnet(charges~.,data = train_scaled_data, hidden = c(5, 3),
-                     threshold=0.05,linear.output = TRUE)
-  predict_nn_calib=neuralnet::compute(model_nn,calib_scaled_data[,1:6])$net.result*
-    (max_charge-min_charge)+min_charge
-  predict_nn_test=neuralnet::compute(model_nn,test_scaled_data[,1:6])$net.result*
-    (max_charge-min_charge)+min_charge
-  scores_nn_calib=abs(calib_data$charges-predict_nn_calib)
-  scores_nn_test=abs(test_data$charges-predict_nn_test)
+  model_nn=neuralnet(rings~.,data = train_scaled_data, hidden = c(5, 3),
+                      threshold=0.05,linear.output = TRUE)
+  predict_nn_calib=neuralnet::compute(model_nn,calib_scaled_data[,1:7])$net.result*
+    (max_rings-min_rings)+min_rings
+  predict_nn_test=neuralnet::compute(model_nn,test_scaled_data[,1:7])$net.result*
+    (max_rings-min_rings)+min_rings
+  scores_nn_calib=abs(calib_data$rings-predict_nn_calib)
+  scores_nn_test=abs(test_data$rings-predict_nn_test)
   
-  result_nn_RLCP=RLCP_real(Xcalib,scores_nn_calib,Xtest,scores_nn_test,h,alpha)
+  result_nn_RLCP=RLCP_real(Xcalib, scores_nn_calib,Xtest,scores_nn_test,h,alpha)
   width_nn_RLCP=as.vector(2*abs(result_nn_RLCP[,2]))
   
   return(list(width_lm_RLCP,width_rf_RLCP,width_nn_RLCP))
@@ -138,7 +133,7 @@ numcores=detectCores()
 cl=makeCluster(numcores)
 registerDoParallel(cl)
 #bandwidth choices
-hseq=2:8
+hseq=1:6 *0.05
 alpha=0.1
 
 comb_rand=function(x,y){return(list(rbind(x[[1]],y[[1]]),rbind(x[[2]],y[[2]]),rbind(x[[3]],y[[3]])))}
